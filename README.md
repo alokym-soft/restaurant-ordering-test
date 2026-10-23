@@ -179,6 +179,8 @@ Requests are validated by small hand-written parsers; every invalid field is rep
 
 - Zoneless change detection, `OnPush` everywhere, signal inputs; a live update re-renders only the affected row.
 - Every route is lazy; `@defer` for non-critical parts.
+- The snack bar and the CDK overlay it needs load on demand (prefetched right after startup). Otherwise
+  the bundler would also pull CDK virtual scroll into the initial bundle, because both live in the same module.
 - CDK virtual scroll for the menu (about 3000 seeded items) with fixed row height; live updates never change row size.
 - Skeletons match real content dimensions to avoid layout shift.
 - Unavailable items stay in place, disabled, instead of disappearing under the cursor.
@@ -222,6 +224,11 @@ Requests are validated by small hand-written parsers; every invalid field is rep
 - Completed orders stay in memory for the lifetime of the server; nothing is archived or pruned.
 - Idempotency keys are kept in memory without expiry.
 - Deletes in Setup have no version check: deleting an entity that someone just edited still succeeds.
+- No menu search and no highlight of items that just changed live.
+- The cart is saved to `localStorage` per browser; open tabs do not sync their carts with each other.
+- Live menu updates are applied once per animation frame; in a hidden tab the browser pauses frames, so
+  updates are held in memory and applied when the tab becomes visible again.
+- The cart is a separate page (`/cart`) rather than a side panel.
 - _TBD: extend during implementation._
 
 ## Production readiness

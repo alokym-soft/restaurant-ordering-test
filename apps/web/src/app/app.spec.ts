@@ -2,6 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { provideMockStore } from '@ngrx/store/testing';
 import { connectionFeature, initialConnectionState } from '@core/realtime';
+import { cartFeature, initialCartState } from '@cart';
+import { initialMenuState, menuFeature } from '@menu';
 import { App } from './app';
 
 describe('App', () => {
@@ -10,7 +12,13 @@ describe('App', () => {
       imports: [App],
       providers: [
         provideRouter([]),
-        provideMockStore({ initialState: { [connectionFeature.name]: initialConnectionState } }),
+        provideMockStore({
+          initialState: {
+            [connectionFeature.name]: initialConnectionState,
+            [cartFeature.name]: initialCartState,
+            [menuFeature.name]: initialMenuState,
+          },
+        }),
       ],
     }).compileComponents();
   });

@@ -3,6 +3,7 @@ import type { Routes } from '@angular/router';
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'menu' },
   { path: 'menu', loadChildren: () => import('@menu/feature-browse/menu.routes') },
+  { path: 'cart', loadChildren: () => import('@cart/feature-cart/cart.routes') },
   { path: 'orders', loadChildren: () => import('@orders/feature-orders/orders.routes') },
   { path: 'setup', loadChildren: () => import('@setup/feature-setup/setup.routes') },
   {

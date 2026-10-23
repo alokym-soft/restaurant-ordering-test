@@ -1,0 +1,46 @@
+<section class="page">
+  @if (hasRows()) {
+    <nav class="categories" aria-label="Categories">
+      @for (category of categories(); track category.id) {
+        <button mat-stroked-button type="button" (click)="scrollToCategory(category.rowIndex)">
+          {{ category.name }}
+        </button>
+      }
+    </nav>
+
+    @if (status() === 'error') {
+      <div class="inline-error" role="alert">
+        <span>{{ error()?.message }} Showing the last known menu.</span>
+        <button mat-button type="button" (click)="retry()">Retry</button>
+      </div>
+    }
+
+    <cdk-virtual-scroll-viewport class="viewport" [itemSize]="rowHeight" aria-label="Menu">
+      <div *cdkVirtualFor="let row of rows(); trackBy: trackRow" class="slot" [style.height.px]="rowHeight">
+        @if (row.kind === 'category') {
+          <h2 class="category">{{ row.name }}</h2>
+        } @else {
+          @let item = items()[row.id];
+          @if (item) {
+            <app-menu-item-row [item]="item" (add)="add($event)" />
+          }
+        }
+      </div>
+    </cdk-virtual-scroll-viewport>
+  } @else if (showSkeleton()) {
+    <div class="skeletons" aria-busy="true" aria-label="Loading menu">
+      <div class="categories categories--skeleton"></div>
+      @for (index of skeletons; track index) {
+        <app-menu-skeleton-row />
+      }
+    </div>
+  } @else if (status() === 'error') {
+    <app-error-state
+      title="The menu could not be loaded"
+      [message]="error()?.message ?? 'Please try again.'"
+      (retry)="retry()"
+    />
+  } @else {
+    <p class="empty">The menu is empty. Add categories and items in Setup.</p>
+  }
+</section>
