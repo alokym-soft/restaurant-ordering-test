@@ -22,15 +22,19 @@ import { ConnectionBannerComponent } from './connection-banner.component';
         }
       </nav>
       <span class="spacer"></span>
-      <span
+      <a
+        mat-button
         class="cart"
+        routerLink="/cart"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
         [matBadge]="cartCount()"
         [matBadgeHidden]="cartCount() === 0"
         matBadgeOverlap="false"
-        aria-label="Items in cart"
+        [attr.aria-label]="'Cart, ' + cartCount() + ' items'"
       >
         Cart
-      </span>
+      </a>
     </mat-toolbar>
     <main class="content">
       <ng-content />
@@ -53,7 +57,8 @@ import { ConnectionBannerComponent } from './connection-banner.component';
       font: var(--mat-sys-title-large);
       margin-right: 16px;
     }
-    .nav .active {
+    .nav .active,
+    .cart.active {
       background: var(--mat-sys-secondary-container);
     }
     .spacer {
