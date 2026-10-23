@@ -5,7 +5,9 @@ and a minimal server with real-time updates. Built with Angular, NgRx and Fastif
 
 ## How to run
 
-Requirements: Node.js 22 LTS (22.22.3 or newer, required by Angular CLI 22) or Node.js 24 LTS, npm 10+.
+Requirements: Node.js 22 LTS (22.22.3 or newer, required by Angular CLI 22) or Node.js 24 LTS,
+npm 11.21 or newer (older npm 11 releases drop platform-specific build tool binaries from
+`package-lock.json`; update with `npm install -g npm@latest`).
 
 ```bash
 npm install

@@ -8,7 +8,8 @@
     "apps/*"
   ],
   "engines": {
-    "node": ">=22.22.3"
+    "node": ">=22.22.3",
+    "npm": ">=11.21.0"
   },
   "scripts": {
     "start": "concurrently -n server,web -c blue,magenta --kill-others-on-fail \"npm run start -w @restaurant/server\" \"npm run start -w @restaurant/web\"",
