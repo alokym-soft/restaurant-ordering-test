@@ -15,6 +15,7 @@ import { GlobalErrorHandler, NotificationService } from '@core/errors';
 import { apiBaseUrlInterceptor, apiErrorInterceptor } from '@core/http';
 import { connectionEffects, connectionFeature } from '@core/realtime';
 import { provideMenuStore } from '@menu';
+import { provideCartStore } from '@cart';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -32,6 +33,7 @@ export const appConfig: ApplicationConfig = {
     provideState(connectionFeature),
     provideEffects(connectionEffects),
     provideMenuStore(),
+    provideCartStore(),
     isDevMode() ? provideStoreDevtools({ maxAge: 50 }) : [],
   ],
 };

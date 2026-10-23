@@ -7,7 +7,9 @@ import {
 } from '@angular/core';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { Store } from '@ngrx/store';
+import { firstValueFrom } from 'rxjs';
 import { NotificationService } from '@core/errors';
 import { ErrorStateComponent } from '@shared/ui';
 import {
@@ -22,6 +24,11 @@ import {
 import { MENU_ROW_HEIGHT } from '@menu/ui/menu-row-height';
 import { type MenuItemAdd, MenuItemRowComponent } from '@menu/ui/menu-item-row.component';
 import { MenuSkeletonRowComponent } from '@menu/ui/menu-skeleton-row.component';
+import {
+  OpenPriceDialogComponent,
+  type OpenPriceDialogData,
+  type OpenPriceDialogResult,
+} from '@menu/ui/open-price-dialog.component';
 
 @Component({
   selector: 'app-menu-page',
@@ -33,6 +40,7 @@ import { MenuSkeletonRowComponent } from '@menu/ui/menu-skeleton-row.component';
 export class MenuPageComponent {
   private readonly store = inject(Store);
   private readonly notifications = inject(NotificationService);
+  private readonly dialog = inject(MatDialog);
   private readonly viewport = viewChild(CdkVirtualScrollViewport);
 
   protected readonly rowHeight = MENU_ROW_HEIGHT;
@@ -56,18 +64,31 @@ export class MenuPageComponent {
     this.store.dispatch(MenuPageActions.retryClicked());
   }
 
-  protected add({ item, quantity }: MenuItemAdd): void {
-    if (item.pricing.kind !== 'fixed') return;
+  protected async add({ item, quantity }: MenuItemAdd): Promise<void> {
+    let unitPrice: number;
+    let finalQuantity = quantity;
+    if (item.pricing.kind === 'fixed') {
+      unitPrice = item.pricing.price;
+    } else {
+      const ref = this.dialog.open<OpenPriceDialogComponent, OpenPriceDialogData, OpenPriceDialogResult>(
+        OpenPriceDialogComponent,
+        { data: { name: item.name, min: item.pricing.min, max: item.pricing.max, quantity }, width: '400px' },
+      );
+      const result = await firstValueFrom(ref.afterClosed());
+      if (!result) return;
+      unitPrice = result.unitPrice;
+      finalQuantity = result.quantity;
+    }
     this.store.dispatch(
       MenuPageActions.itemAdded({
         itemId: item.id,
         name: item.name,
-        priceKind: 'fixed',
-        unitPrice: item.pricing.price,
+        priceKind: item.pricing.kind,
+        unitPrice,
         itemVersion: item.version,
-        quantity,
+        quantity: finalQuantity,
       }),
     );
-    this.notifications.info(`${quantity} × ${item.name} added to cart`);
+    this.notifications.info(`${finalQuantity} × ${item.name} added to cart`);
   }
 }
