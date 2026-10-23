@@ -60,7 +60,10 @@
         "serve": {
           "builder": "@angular/build:dev-server",
           "options": {
-            "proxyConfig": "proxy.conf.json"
+            "proxyConfig": "proxy.conf.json",
+            "prebundle": {
+              "exclude": ["@restaurant/contracts"]
+            }
           },
           "configurations": {
             "production": {
