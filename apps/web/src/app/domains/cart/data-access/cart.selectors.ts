@@ -1,9 +1,10 @@
 import { createSelector } from '@ngrx/store';
-import type { MenuChange, MenuItem, Minor } from '@restaurant/contracts';
+import type { CreateOrderRequest, MenuChange, MenuItem, Minor } from '@restaurant/contracts';
 import { selectItemEntities } from '@menu';
 import { addMoney, multiplyMoney } from '@shared/util/money';
 import { cartFeature, cartLineAdapter } from './cart.feature';
 import type { CartLine } from './cart.models';
+import { isCheckoutLocked } from './checkout.models';
 
 export interface CartLineView {
   line: CartLine;
@@ -73,4 +74,21 @@ export const selectCartTotals = createSelector(
     const discount = Math.min(requestedDiscount, subtotal);
     return { subtotal, requestedDiscount, discount, total: subtotal - discount };
   },
+);
+
+export const selectCheckout = cartFeature.selectCheckout;
+
+export const selectCheckoutStatus = createSelector(selectCheckout, (checkout) => checkout.status);
+
+/** True while a request is in flight or its outcome is unknown; the cart cannot be edited. */
+export const selectCartIsLocked = createSelector(selectCheckout, isCheckoutLocked);
+
+/** Exactly what is sent; any change here must invalidate the idempotency key. */
+export const selectOrderRequest = createSelector(
+  selectCartLines,
+  cartFeature.selectDiscount,
+  (lines, discount): CreateOrderRequest => ({
+    lines: lines.map(({ itemId, quantity, unitPrice, itemVersion }) => ({ itemId, quantity, unitPrice, itemVersion })),
+    discount,
+  }),
 );

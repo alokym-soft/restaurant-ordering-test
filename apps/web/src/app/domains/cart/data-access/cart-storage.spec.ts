@@ -64,7 +64,11 @@ describe('parseStoredCart', () => {
       discount: 100,
       lines: cartLineAdapter.setAll([{ ...validLine, id: 'a' }], initialCartState.lines),
     };
-    expect(parseStoredCart(serializeCart(state))).toEqual({ lines: state.lines, discount: 100 });
+    expect(parseStoredCart(serializeCart(state))).toEqual({
+      lines: state.lines,
+      discount: 100,
+      checkout: initialCartState.checkout,
+    });
   });
 });
 
