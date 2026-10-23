@@ -1,9 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { Store } from '@ngrx/store';
+import { firstValueFrom } from 'rxjs';
 import { parseMoney, toMajorString } from '@shared/util/money';
 import {
   CartPageActions,
@@ -12,9 +14,16 @@ import {
   selectCartHasIssues,
   selectCartLineViews,
   selectCartTotals,
+  selectCheckoutReview,
+  selectCheckoutStatus,
 } from '@cart/data-access';
 import { CartLineComponent } from '@cart/ui/cart-line.component';
 import { CartSummaryComponent } from '@cart/ui/cart-summary.component';
+import {
+  MenuChangesDialogComponent,
+  type MenuChangesDialogData,
+  type MenuChangesDialogResult,
+} from '@cart/ui/menu-changes-dialog.component';
 
 @Component({
   selector: 'app-cart-page',
@@ -94,15 +103,45 @@ import { CartSummaryComponent } from '@cart/ui/cart-summary.component';
 })
 export class CartPageComponent {
   private readonly store = inject(Store);
+  private readonly dialog = inject(MatDialog);
 
   protected readonly lines = this.store.selectSignal(selectCartLineViews);
   protected readonly totals = this.store.selectSignal(selectCartTotals);
   protected readonly hasIssues = this.store.selectSignal(selectCartHasIssues);
+  protected readonly checkoutStatus = this.store.selectSignal(selectCheckoutStatus);
+  private readonly review = this.store.selectSignal(selectCheckoutReview);
+  private reviewOpen = false;
 
   // Local input text, seeded once; the store only receives valid amounts.
   private readonly initialDiscount = this.store.selectSignal(cartFeature.selectDiscount)();
   protected readonly discountText = signal(this.initialDiscount > 0 ? toMajorString(this.initialDiscount) : '');
   protected readonly discountInvalid = signal(false);
+
+  constructor() {
+    effect(() => {
+      if (this.checkoutStatus() === 'changes' && !this.reviewOpen) untracked(() => void this.openReview());
+    });
+  }
+
+  /** Shows every affected line with its outcome; only what the user saw is applied. */
+  private async openReview(): Promise<void> {
+    const rows = this.review();
+    if (rows.length === 0) {
+      this.store.dispatch(CartPageActions.changesDismissed());
+      return;
+    }
+    this.reviewOpen = true;
+    const removed = rows.filter((row) => row.outcome.kind === 'remove').length;
+    const ref = this.dialog.open<MenuChangesDialogComponent, MenuChangesDialogData, MenuChangesDialogResult>(
+      MenuChangesDialogComponent,
+      { data: { rows, cartWillBeEmpty: removed === this.lines().length }, width: '480px' },
+    );
+    const accepted = await firstValueFrom(ref.afterClosed());
+    this.reviewOpen = false;
+    this.store.dispatch(
+      accepted ? CartPageActions.changesAccepted({ resolutions: rows }) : CartPageActions.changesDismissed(),
+    );
+  }
 
   protected changeQuantity(view: CartLineView, quantity: number): void {
     this.store.dispatch(CartPageActions.quantityChanged({ lineId: view.line.id, quantity }));

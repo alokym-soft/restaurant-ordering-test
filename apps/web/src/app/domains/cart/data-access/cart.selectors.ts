@@ -4,7 +4,7 @@ import { selectItemEntities } from '@menu';
 import { addMoney, multiplyMoney } from '@shared/util/money';
 import { cartFeature, cartLineAdapter } from './cart.feature';
 import type { CartLine } from './cart.models';
-import { isCheckoutLocked } from './checkout.models';
+import { type CheckoutLineOutcome, type CheckoutReviewRow, isCheckoutLocked } from './checkout.models';
 
 export interface CartLineView {
   line: CartLine;
@@ -65,6 +65,38 @@ export const selectCartCount = createSelector(selectCartLines, (lines) =>
 export const selectCartIsEmpty = createSelector(selectCartLines, (lines) => lines.length === 0);
 
 export const selectCartHasIssues = createSelector(selectCartLineViews, (views) => views.some((view) => view.issue));
+
+function outcomeOf(view: CartLineView, issue: MenuChange): CheckoutLineOutcome {
+  switch (issue.kind) {
+    case 'price_changed':
+      return {
+        kind: 'reprice',
+        from: issue.previous,
+        to: issue.current,
+        itemVersion: view.currentItemVersion ?? view.line.itemVersion,
+      };
+    case 'open_price_out_of_range':
+      return { kind: 'remove', reason: 'out_of_range', min: issue.min, max: issue.max };
+    default:
+      return { kind: 'remove', reason: issue.kind };
+  }
+}
+
+/**
+ * One row per affected line with exactly what accepting will do. Built from the live menu, which
+ * already includes the items returned by a `409 MENU_CHANGED`.
+ */
+export const selectCheckoutReview = createSelector(selectCartLineViews, (views): CheckoutReviewRow[] =>
+  views.flatMap((view) =>
+    view.issue
+      ? [{ lineId: view.line.id, name: view.line.name, quantity: view.line.quantity, outcome: outcomeOf(view, view.issue) }]
+      : [],
+  ),
+);
+
+export const selectCartIssues = createSelector(selectCartLineViews, (views): MenuChange[] =>
+  views.flatMap((view) => (view.issue ? [view.issue] : [])),
+);
 
 export const selectCartTotals = createSelector(
   selectCartLineViews,

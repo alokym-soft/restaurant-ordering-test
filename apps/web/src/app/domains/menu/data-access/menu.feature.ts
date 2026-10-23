@@ -96,6 +96,12 @@ export const menuFeature = createFeature({
   name: 'menu',
   reducer: createReducer(
     initialMenuState,
+    on(MenuApiActions.itemsRefreshed, (state, { items, removedIds }): MenuState => {
+      const pending: Pending<MenuItem> = new Map();
+      for (const item of items) upsertIfNewer(pending, state.items, item);
+      for (const id of removedIds) if (state.items.entities[id]) pending.set(id, null);
+      return pending.size === 0 ? state : { ...state, items: commit(itemAdapter, state.items, pending) };
+    }),
     on(MenuApiActions.snapshotRequested, (state): MenuState => ({ ...state, status: 'loading', error: null })),
     on(
       MenuApiActions.snapshotLoaded,

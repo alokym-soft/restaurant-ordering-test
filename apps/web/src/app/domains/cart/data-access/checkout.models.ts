@@ -1,6 +1,19 @@
 import { InjectionToken } from '@angular/core';
-import type { MenuChange } from '@restaurant/contracts';
+import type { MenuChange, Minor } from '@restaurant/contracts';
 import type { HttpApiError } from '@core/http';
+
+/** What accepting the changes will do to one cart line. Shown to the user before they confirm. */
+export type CheckoutLineOutcome =
+  | { kind: 'reprice'; from: Minor; to: Minor; itemVersion: number }
+  | { kind: 'remove'; reason: 'unavailable' | 'removed' }
+  | { kind: 'remove'; reason: 'out_of_range'; min: Minor; max: Minor };
+
+export interface CheckoutReviewRow {
+  lineId: string;
+  name: string;
+  quantity: number;
+  outcome: CheckoutLineOutcome;
+}
 
 /**
  * - `idle`: nothing in flight; the cart can be edited.

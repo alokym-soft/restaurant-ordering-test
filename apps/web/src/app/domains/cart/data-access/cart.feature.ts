@@ -80,6 +80,33 @@ export const cartFeature = createFeature({
       ...state,
       checkout: { ...state.checkout, status: 'submitting', idempotencyKey, error: null },
     })),
+    on(CheckoutActions.reviewRequired, CheckoutApiActions.menuChanged, (state, { changes }): CartState => ({
+      ...state,
+      checkout: { ...state.checkout, status: 'changes', lastChanges: changes, error: null },
+    })),
+    on(CartPageActions.changesAccepted, (state, { resolutions }): CartState => {
+      if (state.checkout.status !== 'changes') return state;
+      // Applies exactly the outcomes the user confirmed; changing the body clears the key.
+      const next = editBody(state, (s): CartState => {
+        let lines = s.lines;
+        for (const { lineId, outcome } of resolutions) {
+          lines =
+            outcome.kind === 'reprice'
+              ? cartLineAdapter.updateOne(
+                  { id: lineId, changes: { unitPrice: outcome.to, itemVersion: outcome.itemVersion } },
+                  lines,
+                )
+              : cartLineAdapter.removeOne(lineId, lines);
+        }
+        return { ...s, lines };
+      });
+      return { ...next, checkout: { ...next.checkout, status: 'idle', lastChanges: [] } };
+    }),
+    on(CartPageActions.changesDismissed, (state): CartState =>
+      state.checkout.status === 'changes'
+        ? { ...state, checkout: { ...state.checkout, status: 'idle', lastChanges: [] } }
+        : state,
+    ),
     on(CheckoutApiActions.orderPlaced, (): CartState => ({
       ...initialCartState,
       checkout: { ...initialCheckoutState, status: 'done' },
