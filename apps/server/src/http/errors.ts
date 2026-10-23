@@ -21,5 +21,18 @@ export const validationFailed = (fields: FieldError[]): AppError<'VALIDATION_FAI
     details: { fields },
   });
 
+export const versionConflict = <T>(current: T): AppError<'VERSION_CONFLICT', { current: T }> =>
+  new AppError(409, {
+    code: 'VERSION_CONFLICT',
+    message: 'This entry was changed by someone else. The form now shows the latest values.',
+    details: { current },
+  });
+
+export const categoryNotEmpty = (): AppError<'CATEGORY_NOT_EMPTY'> =>
+  new AppError(409, {
+    code: 'CATEGORY_NOT_EMPTY',
+    message: 'This category still has items. Move or delete them first.',
+  });
+
 export const internalError = (message = 'Something went wrong on our side. Please try again.'): AppError<'INTERNAL'> =>
   new AppError(500, { code: 'INTERNAL', message });

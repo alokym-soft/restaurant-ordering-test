@@ -4,6 +4,7 @@ import type { ServerConfig } from './config.js';
 import { EventBus } from './events/event-bus.js';
 import { registerErrorHandling } from './http/error-handler.js';
 import { readRoutes } from './routes/read.js';
+import { setupRoutes } from './routes/setup.js';
 import { type SeedData, generateSeed } from './seed.js';
 import { MenuStore } from './store/menu-store.js';
 import { OrdersStore } from './store/orders-store.js';
@@ -47,6 +48,7 @@ export async function buildApp(config: ServerConfig, options: BuildOptions = {})
 
   app.get('/api/health', async (): Promise<HealthResponse> => ({ status: 'ok' }));
   await app.register(readRoutes);
+  await app.register(setupRoutes);
   await app.register(realtimeGateway);
 
   return app;

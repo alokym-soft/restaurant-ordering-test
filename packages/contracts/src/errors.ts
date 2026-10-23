@@ -5,6 +5,7 @@ export type ApiErrorCode =
   | 'VALIDATION_FAILED'     // 400
   | 'NOT_FOUND'             // 404
   | 'VERSION_CONFLICT'      // 409, Setup edit on a stale entity
+  | 'CATEGORY_NOT_EMPTY'    // 409, deleting a category that still has items
   | 'MENU_CHANGED'          // 409, checkout saw outdated prices or availability
   | 'IDEMPOTENCY_MISMATCH'  // 422, same key reused with a different body
   | 'INTERNAL';             // 500
