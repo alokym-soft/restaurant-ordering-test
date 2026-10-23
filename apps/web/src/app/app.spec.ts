@@ -1,12 +1,18 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { provideMockStore } from '@ngrx/store/testing';
+import { connectionFeature, initialConnectionState } from '@core/realtime';
 import { App } from './app';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
-    })
-      .compileComponents();
+      providers: [
+        provideRouter([]),
+        provideMockStore({ initialState: { [connectionFeature.name]: initialConnectionState } }),
+      ],
+    }).compileComponents();
   });
 
   it('should create the app', () => {
@@ -15,10 +21,12 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render the header', async () => {
+  it('should render the shell with navigation', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('header')?.textContent).toContain('Restaurant');
+    expect(compiled.querySelector('.brand')?.textContent).toContain('Restaurant');
+    const links = Array.from(compiled.querySelectorAll('nav a')).map((a) => a.textContent?.trim());
+    expect(links).toEqual(['Menu', 'Orders', 'Setup']);
   });
 });

@@ -159,6 +159,10 @@ Rows show a pending state until the resulting event arrives.
 - All errors follow one `ApiError` shape with a user-safe `message`.
 - The connection state is shown in a non-blocking banner. While offline the app keeps working with
   the last known data and disables checkout.
+- If the server rejects the socket protocol (close code `4400`), the client does not retry in a loop;
+  it shows an error state with a reload action instead.
+- HTTP requests time out after 15 s; network errors, timeouts and unexpected responses are all
+  turned into the same `ApiError` shape with a user-safe message.
 - Failed requests can be retried; a retried checkout reuses its idempotency key.
 - The server can inject latency, failures and socket drops (`LATENCY_MS`, `FAILURE_RATE`, `WS_DROP_MS`)
   to demonstrate this.
