@@ -12,6 +12,7 @@ import { provideStoreDevtools } from '@ngrx/store-devtools';
 import { GlobalErrorHandler } from '@core/errors';
 import { apiBaseUrlInterceptor, apiErrorInterceptor } from '@core/http';
 import { connectionEffects, connectionFeature } from '@core/realtime';
+import { provideMenuStore } from '@menu';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -23,6 +24,7 @@ export const appConfig: ApplicationConfig = {
     provideStore(),
     provideState(connectionFeature),
     provideEffects(connectionEffects),
+    provideMenuStore(),
     isDevMode() ? provideStoreDevtools({ maxAge: 50 }) : [],
   ],
 };
