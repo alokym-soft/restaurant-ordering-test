@@ -3,10 +3,12 @@ import websocket from '@fastify/websocket';
 import type { ServerConfig } from './config.js';
 import { EventBus } from './events/event-bus.js';
 import { registerErrorHandling } from './http/error-handler.js';
+import { registerFaultInjection } from './http/fault-injection.js';
 import { orderRoutes } from './routes/orders.js';
 import { readRoutes } from './routes/read.js';
 import { setupRoutes } from './routes/setup.js';
-import { type SeedData, generateSeed } from './seed.js';
+import { generateSeed, type SeedData } from './seed.js';
+import { StatusScheduler } from './sim/status-scheduler.js';
 import { MenuStore } from './store/menu-store.js';
 import { OrdersStore } from './store/orders-store.js';
 import { realtimeGateway } from './ws/gateway.js';
@@ -25,6 +27,11 @@ export interface BuildOptions {
   /** Initial menu; defaults to the deterministic demo seed. */
   seed?: SeedData;
   logger?: boolean;
+  /** Random sources in [0, 1); default `Math.random`. Injectable for deterministic tests. */
+  random?: {
+    faults?: () => number;
+    status?: () => number;
+  };
 }
 
 export async function buildApp(config: ServerConfig, options: BuildOptions = {}): Promise<FastifyInstance> {
@@ -41,10 +48,21 @@ export async function buildApp(config: ServerConfig, options: BuildOptions = {})
   const seed = options.seed ?? generateSeed();
   menu.load(seed.categories, seed.items);
 
+  const scheduler = new StatusScheduler(orders, bus, {
+    stepMs: config.statusStepMs,
+    ...(options.random?.status && { random: options.random.status }),
+  });
+  app.addHook('onClose', async () => scheduler.stop());
+
   app.decorate('config', config);
   app.decorate('services', { bus, menu, orders } satisfies Services);
 
   registerErrorHandling(app);
+  registerFaultInjection(app, {
+    latencyMs: config.latencyMs,
+    failureRate: config.failureRate,
+    random: options.random?.faults ?? Math.random,
+  });
   await app.register(websocket);
 
   app.get('/api/health', async (): Promise<HealthResponse> => ({ status: 'ok' }));

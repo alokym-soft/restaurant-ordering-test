@@ -77,6 +77,7 @@ export async function realtimeGateway(app: FastifyInstance): Promise<void> {
     };
 
     const helloTimer = setTimeout(() => protocolError('Expected hello'), HELLO_TIMEOUT_MS);
+    helloTimer.unref();
 
     const startSession = (lastSeq: number | null): void => {
       clearTimeout(helloTimer);
@@ -101,6 +102,7 @@ export async function realtimeGateway(app: FastifyInstance): Promise<void> {
         }
         send({ type: 'ping', ts: Date.now() });
       }, heartbeatMs);
+      heartbeat.unref();
     };
 
     socket.on('message', (data, isBinary) => {

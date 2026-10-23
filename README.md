@@ -30,12 +30,20 @@ Server environment variables (all optional):
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `3000` | Server port |
-| `LATENCY_MS` | `0` | Artificial latency for API responses |
-| `FAILURE_RATE` | `0` | Share of API requests that fail with 500, for testing error handling |
-| `STATUS_STEP_MS` | `8000` | Interval between simulated order status changes |
+| `LATENCY_MS` | `0` | Artificial latency for REST responses (not `/api/ws` or `/api/health`) |
+| `FAILURE_RATE` | `0` | Share of REST requests (0..1) that fail with 500 `INTERNAL`, for testing error handling. See below |
+| `STATUS_STEP_MS` | `8000` | Interval between simulated order status changes, with ±30% jitter |
 | `EVENT_BUFFER_SIZE` | `1000` | Events kept for resume after reconnect |
 | `HEARTBEAT_MS` | `10000` | Server ping interval |
 | `WS_DROP_MS` | unset | If set, drops every socket at this interval to demonstrate reconnect |
+
+`FAILURE_RATE` never affects `/api/ws` or `/api/health`. A failing GET fails before it runs.
+For a failing mutation (POST, PATCH, DELETE), half the failures happen before the change and
+half **after** it: the change is applied and its event is broadcast, but the response is
+replaced with a 500. This simulates a response lost on the way back. Clients must therefore
+treat a 500 on a mutation as "outcome unknown": checkout retries with the same
+`Idempotency-Key` and gets the original order back with 200, and the menu converges through
+the event stream.
 
 ## Architecture
 
