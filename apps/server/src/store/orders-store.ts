@@ -1,8 +1,16 @@
 import type { Order, OrderId, OrdersSnapshot } from '@restaurant/contracts';
 
+/** What an idempotency key was first used for. */
+export interface IdempotencyRecord {
+  fingerprint: string;
+  orderId: OrderId;
+}
+
 /** Orders kept in memory for the lifetime of the process. */
 export class OrdersStore {
   readonly orders = new Map<OrderId, Order>();
+  /** Idempotency keys never expire; see README "Deliberate simplifications". */
+  readonly idempotency = new Map<string, IdempotencyRecord>();
   private nextNumber = 1;
 
   constructor(private readonly currentSeq: () => number) {}

@@ -3,6 +3,7 @@ import websocket from '@fastify/websocket';
 import type { ServerConfig } from './config.js';
 import { EventBus } from './events/event-bus.js';
 import { registerErrorHandling } from './http/error-handler.js';
+import { orderRoutes } from './routes/orders.js';
 import { readRoutes } from './routes/read.js';
 import { setupRoutes } from './routes/setup.js';
 import { type SeedData, generateSeed } from './seed.js';
@@ -49,6 +50,7 @@ export async function buildApp(config: ServerConfig, options: BuildOptions = {})
   app.get('/api/health', async (): Promise<HealthResponse> => ({ status: 'ok' }));
   await app.register(readRoutes);
   await app.register(setupRoutes);
+  await app.register(orderRoutes);
   await app.register(realtimeGateway);
 
   return app;

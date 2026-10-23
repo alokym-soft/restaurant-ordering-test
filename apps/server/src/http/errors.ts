@@ -34,5 +34,11 @@ export const categoryNotEmpty = (): AppError<'CATEGORY_NOT_EMPTY'> =>
     message: 'This category still has items. Move or delete them first.',
   });
 
+export const idempotencyMismatch = (): AppError<'IDEMPOTENCY_MISMATCH'> =>
+  new AppError(422, {
+    code: 'IDEMPOTENCY_MISMATCH',
+    message: 'This checkout was already submitted with different contents. Please review your cart and try again.',
+  });
+
 export const internalError = (message = 'Something went wrong on our side. Please try again.'): AppError<'INTERNAL'> =>
   new AppError(500, { code: 'INTERNAL', message });
