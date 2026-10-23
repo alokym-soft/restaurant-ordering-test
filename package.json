@@ -1,0 +1,21 @@
+{
+  "name": "restaurant-ordering",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.22.3"
+  },
+  "scripts": {
+    "start": "concurrently -n server,web -c blue,magenta --kill-others-on-fail \"npm run start -w @restaurant/server\" \"npm run start -w @restaurant/web\"",
+    "build": "concurrently -g -n server,web \"npm run build -w @restaurant/server\" \"npm run build -w @restaurant/web\"",
+    "test": "concurrently -g -n contracts,server,web \"npm run test -w @restaurant/contracts\" \"npm run test -w @restaurant/server\" \"npm run test -w @restaurant/web\""
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}

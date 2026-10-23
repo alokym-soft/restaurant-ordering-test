@@ -5,7 +5,7 @@ and a minimal server with real-time updates. Built with Angular, NgRx and Fastif
 
 ## How to run
 
-Requirements: Node.js 22 LTS, npm 10+.
+Requirements: Node.js 22 LTS (22.22.3 or newer, required by Angular CLI 22) or Node.js 24 LTS, npm 10+.
 
 ```bash
 npm install
@@ -18,7 +18,7 @@ npm start
 Other commands:
 
 ```bash
-npm test        # unit tests for web, server and contracts
+npm test        # unit tests for web and server, type check of contracts
 npm run lint    # lint, including architecture boundaries
 npm run build   # production build of web and server
 ```
@@ -161,6 +161,9 @@ Rows show a pending state until the resulting event arrives.
 - npm workspaces instead of Nx: two apps and one shared package do not justify Nx's tooling weight.
   Boundaries are still enforced through ESLint.
 - Fastify with `@fastify/websocket` and in-memory data: minimal, fast, typed. Rejected: NestJS (too heavy for a minimal server).
+- Contracts are consumed as TypeScript sources (no separate build step). The server runs with `tsx` in
+  development and is bundled with `tsup` for production, so the contracts are inlined into `dist/main.js`.
+  Rejected: building contracts to JavaScript with project references (an extra build step and watch process).
 - Contracts are plain TypeScript types shared by both apps. Rejected for now: TypeBox or zod schemas, which
   would add runtime validation from the same source at the cost of an extra dependency.
 

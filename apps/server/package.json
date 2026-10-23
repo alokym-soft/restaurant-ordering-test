@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fastify/websocket": "^11.3.4",
+    "@restaurant/contracts": "*",
     "fastify": "^5.12.7"
   },
   "devDependencies": {
