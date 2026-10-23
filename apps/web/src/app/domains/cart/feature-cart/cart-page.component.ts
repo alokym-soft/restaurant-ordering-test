@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -6,14 +6,18 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { Store } from '@ngrx/store';
 import { firstValueFrom } from 'rxjs';
+import { connectionFeature } from '@core/realtime';
+import { ConfirmDialogComponent, type ConfirmDialogData } from '@shared/ui';
 import { parseMoney, toMajorString } from '@shared/util/money';
 import {
   CartPageActions,
   type CartLineView,
   cartFeature,
   selectCartHasIssues,
+  selectCartIsLocked,
   selectCartLineViews,
   selectCartTotals,
+  selectCheckout,
   selectCheckoutReview,
   selectCheckoutStatus,
 } from '@cart/data-access';
@@ -36,13 +40,29 @@ import {
         <p class="empty">Your cart is empty.</p>
         <a mat-flat-button routerLink="/menu">Browse the menu</a>
       } @else {
-        @if (hasIssues()) {
-          <p class="issues" role="alert">Some items changed since you added them. Review the highlighted lines.</p>
+        @if (checkoutStatus() === 'failed') {
+          <div class="alert" role="alert">
+            <p>{{ checkoutError()?.message }}</p>
+            <p>
+              Your order may have been placed. Retrying is safe: it cannot create a second order. The cart is locked
+              until the order is confirmed.
+            </p>
+            <div class="alert-actions">
+              <button mat-flat-button type="button" [disabled]="!online()" (click)="retry()">Retry</button>
+              <a mat-button routerLink="/orders">Check orders</a>
+              <button mat-button type="button" (click)="unlock()">Edit cart</button>
+            </div>
+          </div>
+        } @else if (checkoutError(); as error) {
+          <p class="alert" role="alert">{{ error.message }}</p>
+        } @else if (hasIssues()) {
+          <p class="alert" role="alert">Some items changed since you added them. Review the highlighted lines.</p>
         }
         <div class="lines">
           @for (view of lines(); track view.line.id) {
             <app-cart-line
               [view]="view"
+              [disabled]="locked()"
               (quantityChange)="changeQuantity(view, $event)"
               (remove)="remove(view)"
               (acceptPrice)="acceptPrice(view)"
@@ -57,13 +77,24 @@ import {
               inputmode="decimal"
               autocomplete="off"
               [value]="discountText()"
+              [disabled]="locked()"
               (input)="changeDiscount($event)"
             />
             @if (discountInvalid()) {
               <mat-hint class="hint-error">Enter an amount like 50 or 50.25</mat-hint>
             }
           </mat-form-field>
-          <app-cart-summary class="summary" [totals]="totals()" />
+          <div class="summary">
+            <app-cart-summary [totals]="totals()" />
+            @if (checkoutStatus() !== 'failed') {
+              <button mat-flat-button type="button" class="checkout" [disabled]="!canCheckout()" (click)="checkout()">
+                {{ checkoutStatus() === 'submitting' ? 'Placing order…' : 'Place order' }}
+              </button>
+            }
+            @if (!online()) {
+              <p class="hint">You are offline. Orders can be placed when the connection is back.</p>
+            }
+          </div>
         </div>
       }
     </section>
@@ -74,14 +105,24 @@ import {
       margin: 0 auto;
       padding: 16px;
     }
-    .empty {
+    .empty,
+    .hint {
       color: var(--mat-sys-on-surface-variant);
     }
-    .issues {
+    .alert {
       padding: 8px 16px;
       border-radius: 8px;
       background: var(--mat-sys-error-container);
       color: var(--mat-sys-on-error-container);
+    }
+    .alert p {
+      margin: 8px 0;
+    }
+    .alert-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
     }
     .lines {
       border-top: 1px solid var(--mat-sys-outline-variant);
@@ -95,6 +136,9 @@ import {
     }
     .summary {
       flex: 0 1 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
     .hint-error {
       color: var(--mat-sys-error);
@@ -109,13 +153,22 @@ export class CartPageComponent {
   protected readonly totals = this.store.selectSignal(selectCartTotals);
   protected readonly hasIssues = this.store.selectSignal(selectCartHasIssues);
   protected readonly checkoutStatus = this.store.selectSignal(selectCheckoutStatus);
+  protected readonly locked = this.store.selectSignal(selectCartIsLocked);
+  protected readonly online = this.store.selectSignal(connectionFeature.selectIsOnline);
+  private readonly checkoutState = this.store.selectSignal(selectCheckout);
   private readonly review = this.store.selectSignal(selectCheckoutReview);
   private reviewOpen = false;
+
+  protected readonly checkoutError = computed(() => this.checkoutState().error);
 
   // Local input text, seeded once; the store only receives valid amounts.
   private readonly initialDiscount = this.store.selectSignal(cartFeature.selectDiscount)();
   protected readonly discountText = signal(this.initialDiscount > 0 ? toMajorString(this.initialDiscount) : '');
   protected readonly discountInvalid = signal(false);
+
+  protected readonly canCheckout = computed(
+    () => this.online() && !this.locked() && !this.discountInvalid() && this.lines().length > 0,
+  );
 
   constructor() {
     effect(() => {
@@ -141,6 +194,30 @@ export class CartPageComponent {
     this.store.dispatch(
       accepted ? CartPageActions.changesAccepted({ resolutions: rows }) : CartPageActions.changesDismissed(),
     );
+  }
+
+  protected checkout(): void {
+    this.store.dispatch(CartPageActions.checkoutClicked());
+  }
+
+  protected retry(): void {
+    this.store.dispatch(CartPageActions.retryClicked());
+  }
+
+  /** Unlocking is explicit: the unconfirmed attempt may already have created the order. */
+  protected async unlock(): Promise<void> {
+    const ref = this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
+      data: {
+        title: 'Edit the cart?',
+        message:
+          'Your previous attempt may have gone through. Check your orders first: once you change the cart, ' +
+          'placing it again creates a separate order.',
+        confirmLabel: 'Edit anyway',
+        cancelLabel: 'Keep it locked',
+      },
+      width: '420px',
+    });
+    if (await firstValueFrom(ref.afterClosed())) this.store.dispatch(CartPageActions.editUnlocked());
   }
 
   protected changeQuantity(view: CartLineView, quantity: number): void {

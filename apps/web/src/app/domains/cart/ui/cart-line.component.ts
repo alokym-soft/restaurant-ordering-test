@@ -30,7 +30,7 @@ export const CART_MAX_QUANTITY = 99;
           <span class="issue" role="status">
             {{ text }}
             @if (view().issue?.kind === 'price_changed') {
-              <button mat-button type="button" (click)="acceptPrice.emit()">Use new price</button>
+              <button mat-button type="button" [disabled]="disabled()" (click)="acceptPrice.emit()">Use new price</button>
             }
           </span>
         }
@@ -40,7 +40,7 @@ export const CART_MAX_QUANTITY = 99;
           mat-button
           type="button"
           aria-label="Decrease quantity"
-          [disabled]="view().line.quantity <= 1"
+          [disabled]="disabled() || view().line.quantity <= 1"
           (click)="quantityChange.emit(view().line.quantity - 1)"
         >
           −
@@ -50,14 +50,20 @@ export const CART_MAX_QUANTITY = 99;
           mat-button
           type="button"
           aria-label="Increase quantity"
-          [disabled]="view().line.quantity >= maxQuantity"
+          [disabled]="disabled() || view().line.quantity >= maxQuantity"
           (click)="quantityChange.emit(view().line.quantity + 1)"
         >
           +
         </button>
       </div>
       <span class="total">{{ totalLabel() }}</span>
-      <button mat-button type="button" [attr.aria-label]="'Remove ' + view().line.name" (click)="remove.emit()">
+      <button
+        mat-button
+        type="button"
+        [attr.aria-label]="'Remove ' + view().line.name"
+        [disabled]="disabled()"
+        (click)="remove.emit()"
+      >
         Remove
       </button>
     </div>
@@ -125,6 +131,8 @@ export const CART_MAX_QUANTITY = 99;
 })
 export class CartLineComponent {
   readonly view = input.required<CartLineViewModel>();
+  /** True while the cart is locked by a checkout attempt. */
+  readonly disabled = input(false);
   readonly quantityChange = output<number>();
   readonly remove = output();
   readonly acceptPrice = output();

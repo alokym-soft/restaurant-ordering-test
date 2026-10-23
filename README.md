@@ -134,14 +134,24 @@ liveness detection. Also rejected: socket.io (extra protocol and bundle weight, 
 
 ### Checkout: no double orders, no surprises
 
-- An `Idempotency-Key` is created when checkout starts and changes only when the cart contents change.
+- **Idempotency key lifecycle.** A key belongs to one exact request body. It is created on the first
+  submit and cleared whenever anything in the body changes: lines, quantities, unit prices or the
+  discount, including the changes the user accepts after a `409`. An unchanged body reuses its key.
   The server returns the original order for a repeated key and rejects a reused key with a different body.
+- **Ambiguous failures lock the cart.** After a network error, a timeout or a 5xx the order may already
+  exist. The cart is then locked and the only action is Retry, which resends the same body with the
+  same key, so it either creates the order once or returns the one already created. Editing requires
+  confirming a warning that the previous attempt may have gone through, with a link to the orders;
+  the next change then gets a new key. The lock survives a page reload. Definite rejections (4xx)
+  do not lock the cart.
 - The submit effect uses `exhaustMap` and the button is disabled while pending.
 - Each cart line sends the price the user saw (and the item version, for diagnostics). The server
   checks every line by value: item removed, item unavailable, fixed price different from the sent
   price, or open price outside the item's current limits. All changes are collected and returned at
-  once as `409 MENU_CHANGED` with the fresh items; the client updates the menu, shows the changes and
-  lets the user confirm. Cart lines also show issues live, before checkout is pressed.
+  once as `409 MENU_CHANGED` with the fresh items; the client updates the menu and shows, per line,
+  exactly what accepting will do: "price X → Y" or "will be removed" with the reason. Nothing is
+  dropped without that confirmation. The same review opens before submitting if cart lines already
+  show issues live.
 - **Value-based, not version-based.** Any edit bumps an item's version, including a typo fix in its
   name or description. Rejecting on version mismatch would block checkout for changes that do not
   affect what the customer pays or whether the item can be served. Comparing values catches exactly
@@ -194,7 +204,8 @@ Requests are validated by small hand-written parsers; every invalid field is rep
   it shows an error state with a reload action instead.
 - HTTP requests time out after 15 s; network errors, timeouts and unexpected responses are all
   turned into the same `ApiError` shape with a user-safe message.
-- Failed requests can be retried; a retried checkout reuses its idempotency key.
+- Failed requests can be retried; a retried checkout reuses its idempotency key and the cart stays
+  locked until the outcome is known.
 - The server can inject latency, failures and socket drops (`LATENCY_MS`, `FAILURE_RATE`, `WS_DROP_MS`)
   to demonstrate this.
 
