@@ -13,9 +13,16 @@
   "scripts": {
     "start": "concurrently -n server,web -c blue,magenta --kill-others-on-fail \"npm run start -w @restaurant/server\" \"npm run start -w @restaurant/web\"",
     "build": "concurrently -g -n server,web \"npm run build -w @restaurant/server\" \"npm run build -w @restaurant/web\"",
-    "test": "concurrently -g -n contracts,server,web \"npm run test -w @restaurant/contracts\" \"npm run test -w @restaurant/server\" \"npm run test -w @restaurant/web\""
+    "test": "concurrently -g -n contracts,server,web \"npm run test -w @restaurant/contracts\" \"npm run test -w @restaurant/server\" \"npm run test -w @restaurant/web\"",
+    "lint": "concurrently -g -n root,contracts,server,web \"eslint eslint.config.js\" \"npm run lint -w @restaurant/contracts\" \"npm run lint -w @restaurant/server\" \"npm run lint -w @restaurant/web\""
   },
   "devDependencies": {
-    "concurrently": "^10.0.6"
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.6",
+    "eslint": "^10.13.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.2.1",
+    "globals": "^17.13.0",
+    "typescript-eslint": "^8.72.0"
   }
 }

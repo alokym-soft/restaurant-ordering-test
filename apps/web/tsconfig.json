@@ -17,9 +17,13 @@
     "paths": {
       "@core/*": ["./src/app/core/*"],
       "@shared/*": ["./src/app/shared/*"],
+      "@menu": ["./src/app/domains/menu/index.ts"],
       "@menu/*": ["./src/app/domains/menu/*"],
+      "@cart": ["./src/app/domains/cart/index.ts"],
       "@cart/*": ["./src/app/domains/cart/*"],
+      "@orders": ["./src/app/domains/orders/index.ts"],
       "@orders/*": ["./src/app/domains/orders/*"],
+      "@setup": ["./src/app/domains/setup/index.ts"],
       "@setup/*": ["./src/app/domains/setup/*"]
     }
   },

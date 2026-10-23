@@ -58,7 +58,14 @@ flowchart TD
 
 Each domain (`menu`, `setup`, `cart`, `orders`) has `data-access`, `feature-*` and `ui` folders.
 Dependencies only point downwards; features never import other features. The rules are enforced by
-`eslint-plugin-boundaries`, so breaking them fails `npm run lint`.
+`eslint-plugin-boundaries`, so breaking them fails `npm run lint`:
+
+- `feature-*`: its own domain's `data-access` and `ui`, other domains only through their public
+  `index.ts` (`@menu`, `@cart`, ...), `core`, `shared`.
+- `data-access`: `core`, `shared/util`, contracts, and other domains' public `index.ts`
+  (the cart reads menu items for live prices and availability).
+- `ui` and `shared/ui`: presentational only; no NgRx, contracts as types only.
+- `core` never imports domains; `shared` never imports `core` or domains.
 
 ### Data flow
 

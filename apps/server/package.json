@@ -8,6 +8,7 @@
     "build": "tsup",
     "serve": "node dist/main.js",
     "test": "vitest run",
+    "lint": "eslint . && tsc --noEmit",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
