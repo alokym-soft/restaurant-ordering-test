@@ -36,6 +36,7 @@ Server environment variables (all optional):
 | `EVENT_BUFFER_SIZE` | `1000` | Events kept for resume after reconnect |
 | `HEARTBEAT_MS` | `10000` | Server ping interval |
 | `WS_DROP_MS` | unset | If set, drops every socket at this interval to demonstrate reconnect |
+| `LOG_LEVEL` | `info` | Server log level (`fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent`) |
 
 `FAILURE_RATE` never affects `/api/ws` or `/api/health`. A failing GET fails before it runs.
 For a failing mutation (POST, PATCH, DELETE), half the failures happen before the change and
@@ -136,9 +137,15 @@ liveness detection. Also rejected: socket.io (extra protocol and bundle weight, 
 - An `Idempotency-Key` is created when checkout starts and changes only when the cart contents change.
   The server returns the original order for a repeated key and rejects a reused key with a different body.
 - The submit effect uses `exhaustMap` and the button is disabled while pending.
-- Each cart line sends the price and item version the user saw. If anything changed, the server answers
-  `409 MENU_CHANGED` with the list of changes and fresh items; the client updates the menu, shows the
-  changes and lets the user confirm. Cart lines also show issues live, before checkout is pressed.
+- Each cart line sends the price the user saw (and the item version, for diagnostics). The server
+  checks every line by value: item removed, item unavailable, fixed price different from the sent
+  price, or open price outside the item's current limits. All changes are collected and returned at
+  once as `409 MENU_CHANGED` with the fresh items; the client updates the menu, shows the changes and
+  lets the user confirm. Cart lines also show issues live, before checkout is pressed.
+- **Value-based, not version-based.** Any edit bumps an item's version, including a typo fix in its
+  name or description. Rejecting on version mismatch would block checkout for changes that do not
+  affect what the customer pays or whether the item can be served. Comparing values catches exactly
+  the changes that matter, including a switch between fixed and open pricing.
 - Totals are computed on the server; the fixed discount is clamped to the subtotal.
 - Order lines store a snapshot of name and price, so later menu edits do not rewrite order history.
 
@@ -151,10 +158,22 @@ liveness detection. Also rejected: socket.io (extra protocol and bundle weight, 
 
 ### Setup: optimistic concurrency
 
-Every mutation sends `expectedVersion`. If the entity changed meanwhile, the server returns
+Every update sends `expectedVersion`. If the entity changed meanwhile, the server returns
 `409 VERSION_CONFLICT` with current values, so two admins never silently overwrite each other;
 the form is refreshed with the latest version and the user is told why.
 Rows show a pending state until the resulting event arrives.
+Deleting a category that still has items is refused with `409 CATEGORY_NOT_EMPTY`.
+
+### Server validation
+
+Requests are validated by small hand-written parsers; every invalid field is reported at once as
+`400 VALIDATION_FAILED` with `details.fields`.
+
+- Names: non-empty after trimming, up to 100 characters; descriptions up to 500.
+- Amounts: integers in minor units, 0 to 100 000 000. Open pricing requires `min <= max` and `max >= 1`.
+- Orders: 1 to 200 lines, quantity an integer from 1 to 99, discount an integer `>= 0`
+  (clamped to the subtotal), and an `Idempotency-Key` header that is a UUID.
+- An item must reference an existing category.
 
 ### Performance
 
@@ -199,6 +218,10 @@ Rows show a pending state until the resulting event arrives.
 - Every client receives every event; there are no per-topic subscriptions (the menu and orders are small enough).
 - The socket is not authenticated.
 - No runtime validation of incoming events on the client; the contract is trusted at compile time.
+- The `cancelled` order status exists in the contract but is never produced; orders always reach `completed`.
+- Completed orders stay in memory for the lifetime of the server; nothing is archived or pruned.
+- Idempotency keys are kept in memory without expiry.
+- Deletes in Setup have no version check: deleting an entity that someone just edited still succeeds.
 - _TBD: extend during implementation._
 
 ## Production readiness

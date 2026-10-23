@@ -11,7 +11,10 @@ export interface OrderLineRequest {
   quantity: number;
   /** For fixed price: the price shown to the user. For open price: the entered price. */
   unitPrice: Minor;
-  /** Item version the client saw; a mismatch is reported as a menu change. */
+  /**
+   * Accepted for diagnostics; the server validates lines by value
+   * (price, pricing range and availability), not by version.
+   */
   itemVersion: number;
 }
 
