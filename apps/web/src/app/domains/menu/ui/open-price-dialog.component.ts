@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import type { Minor } from '@restaurant/contracts';
-import { formatMoney, parseMoney } from '@shared/util/money';
+import { CURRENCY_SYMBOL, formatMoney, parseMoney } from '@shared/util/money';
 import { MAX_QUANTITY } from './menu-item-row.component';
 
 export interface OpenPriceDialogData {
@@ -35,11 +35,12 @@ export function openPriceValidator(min: Minor, max: Minor) {
   imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h2 mat-dialog-title>{{ data.name }}</h2>
+    <h2 mat-dialog-title class="truncate" [title]="data.name">{{ data.name }}</h2>
     <form [formGroup]="form" (ngSubmit)="submit()">
       <mat-dialog-content class="content">
         <mat-form-field>
-          <mat-label>Your price, ₴</mat-label>
+          <mat-label>Your price</mat-label>
+          <span matTextPrefix>{{ currencySymbol }}&nbsp;</span>
           <input matInput formControlName="price" inputmode="decimal" autocomplete="off" cdkFocusInitial />
           <mat-hint>From {{ minLabel }} to {{ maxLabel }}</mat-hint>
           @if (form.controls.price.hasError('format')) {
@@ -71,6 +72,7 @@ export function openPriceValidator(min: Minor, max: Minor) {
   `,
 })
 export class OpenPriceDialogComponent {
+  protected readonly currencySymbol = CURRENCY_SYMBOL;
   protected readonly data = inject<OpenPriceDialogData>(MAT_DIALOG_DATA);
   private readonly dialogRef = inject<MatDialogRef<OpenPriceDialogComponent, OpenPriceDialogResult>>(MatDialogRef);
 

@@ -2,8 +2,14 @@
   @if (hasRows()) {
     <nav class="categories" aria-label="Categories">
       @for (category of categories(); track category.id) {
-        <button mat-stroked-button type="button" (click)="scrollToCategory(category.rowIndex)">
-          {{ category.name }}
+        <button
+          mat-stroked-button
+          type="button"
+          class="category-chip"
+          [title]="category.name"
+          (click)="scrollToCategory(category.rowIndex)"
+        >
+          <span class="category-chip-label truncate">{{ category.name }}</span>
         </button>
       }
     </nav>
@@ -18,7 +24,7 @@
     <cdk-virtual-scroll-viewport class="viewport" [itemSize]="rowHeight" aria-label="Menu">
       <div *cdkVirtualFor="let row of rows(); trackBy: trackRow" class="slot" [style.height.px]="rowHeight">
         @if (row.kind === 'category') {
-          <h2 class="category">{{ row.name }}</h2>
+          <h2 class="category"><span class="truncate" [title]="row.name">{{ row.name }}</span></h2>
         } @else {
           @let item = items()[row.id];
           @if (item) {

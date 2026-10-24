@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MenuChange, Minor } from '@restaurant/contracts';
 import { formatMoney } from '@shared/util/money';
 
@@ -14,12 +16,12 @@ export const CART_MAX_QUANTITY = 99;
 
 @Component({
   selector: 'app-cart-line',
-  imports: [MatButtonModule],
+  imports: [MatButtonModule, MatIconModule, MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="line" [class.line--issue]="!!view().issue">
       <div class="text">
-        <span class="name">{{ view().line.name }}</span>
+        <span class="name truncate" [title]="view().line.name">{{ view().line.name }}</span>
         <span class="unit">
           {{ unitLabel() }}
           @if (view().line.priceKind === 'open') {
@@ -37,34 +39,37 @@ export const CART_MAX_QUANTITY = 99;
       </div>
       <div class="stepper" role="group" [attr.aria-label]="'Quantity of ' + view().line.name">
         <button
-          mat-button
+          mat-icon-button
           type="button"
           aria-label="Decrease quantity"
+          matTooltip="Decrease quantity"
           [disabled]="disabled() || view().line.quantity <= 1"
           (click)="quantityChange.emit(view().line.quantity - 1)"
         >
-          −
+          <mat-icon>remove</mat-icon>
         </button>
         <span class="quantity">{{ view().line.quantity }}</span>
         <button
-          mat-button
+          mat-icon-button
           type="button"
           aria-label="Increase quantity"
+          matTooltip="Increase quantity"
           [disabled]="disabled() || view().line.quantity >= maxQuantity"
           (click)="quantityChange.emit(view().line.quantity + 1)"
         >
-          +
+          <mat-icon>add</mat-icon>
         </button>
       </div>
       <span class="total">{{ totalLabel() }}</span>
       <button
-        mat-button
+        mat-icon-button
         type="button"
+        matTooltip="Remove"
         [attr.aria-label]="'Remove ' + view().line.name"
         [disabled]="disabled()"
         (click)="remove.emit()"
       >
-        Remove
+        <mat-icon>delete</mat-icon>
       </button>
     </div>
   `,
@@ -76,8 +81,22 @@ export const CART_MAX_QUANTITY = 99;
     .line {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+    }
+    /* Narrow screens: name and issue on the first line, controls on the second. */
+    @media (max-width: 600px) {
+      .line {
+        flex-wrap: wrap;
+        row-gap: var(--space-1);
+        padding: var(--space-3);
+      }
+      .text {
+        flex-basis: 100%;
+      }
+      .total {
+        margin-left: auto;
+      }
     }
     .line--issue {
       background: color-mix(in srgb, var(--mat-sys-error-container) 35%, transparent);
@@ -104,8 +123,9 @@ export const CART_MAX_QUANTITY = 99;
     }
     .issue {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 4px;
+      column-gap: var(--space-1);
       font: var(--mat-sys-body-small);
       color: var(--mat-sys-error);
     }
@@ -113,18 +133,16 @@ export const CART_MAX_QUANTITY = 99;
       display: flex;
       align-items: center;
     }
-    .stepper button {
-      min-width: 36px;
-      padding: 0;
-    }
     .quantity {
       width: 24px;
       text-align: center;
       font-variant-numeric: tabular-nums;
     }
     .total {
-      width: 120px;
+      flex: none;
+      min-width: 96px;
       text-align: right;
+      white-space: nowrap;
       font-variant-numeric: tabular-nums;
     }
   `,

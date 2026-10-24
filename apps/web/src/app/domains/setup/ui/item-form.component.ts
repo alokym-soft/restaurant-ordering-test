@@ -14,7 +14,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import type { Category, CategoryId, MenuItem, Minor, Pricing } from '@restaurant/contracts';
-import { parseMoney, toMajorString } from '@shared/util/money';
+import { CURRENCY_SYMBOL, parseMoney, toMajorString } from '@shared/util/money';
 
 export const ITEM_NAME_MAX = 100;
 export const ITEM_DESCRIPTION_MAX = 500;
@@ -109,7 +109,8 @@ export function pricingValidator(group: AbstractControl): ValidationErrors | nul
       </mat-button-toggle-group>
       @if (form.controls.pricingKind.value === 'fixed') {
         <mat-form-field>
-          <mat-label>Price, ₴</mat-label>
+          <mat-label>Price</mat-label>
+          <span matTextPrefix>{{ currencySymbol }}&nbsp;</span>
           <input matInput formControlName="price" inputmode="decimal" autocomplete="off" />
         </mat-form-field>
         @if (form.hasError('price') && form.controls.price.touched) {
@@ -118,11 +119,13 @@ export function pricingValidator(group: AbstractControl): ValidationErrors | nul
       } @else {
         <div class="range">
           <mat-form-field>
-            <mat-label>Min, ₴</mat-label>
+            <mat-label>Min</mat-label>
+            <span matTextPrefix>{{ currencySymbol }}&nbsp;</span>
             <input matInput formControlName="min" inputmode="decimal" autocomplete="off" />
           </mat-form-field>
           <mat-form-field>
-            <mat-label>Max, ₴</mat-label>
+            <mat-label>Max</mat-label>
+            <span matTextPrefix>{{ currencySymbol }}&nbsp;</span>
             <input matInput formControlName="max" inputmode="decimal" autocomplete="off" />
           </mat-form-field>
         </div>
@@ -186,6 +189,7 @@ export class ItemFormComponent {
   readonly save = output<ItemFormSave>();
   readonly cancelled = output();
 
+  protected readonly currencySymbol = CURRENCY_SYMBOL;
   protected readonly nameMax = ITEM_NAME_MAX;
   protected readonly descriptionMax = ITEM_DESCRIPTION_MAX;
 

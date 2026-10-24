@@ -36,4 +36,41 @@ body {
   margin: 0;
   height: 100%;
 }
-/* You can add global styles to this file, and also import other style files */
+
+// Spacing scale. Components use these instead of raw pixel values.
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  // Price column of the menu list, shared by rows and skeletons; fits "Set your price".
+  --menu-price-width: 112px;
+}
+
+// Form fields fill their dialog; dialogs themselves are capped by DIALOG_SIZE.
+.mat-mdc-dialog-content .mat-mdc-form-field {
+  width: 100%;
+}
+
+// One-line text that truncates with an ellipsis; pair it with a `title` holding the full text.
+.truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+// On narrow screens dialog actions stack full width, primary action on top,
+// instead of wrapping unevenly.
+@media (max-width: 480px) {
+  .mat-mdc-dialog-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+  .mat-mdc-dialog-actions .mat-mdc-button-base + .mat-mdc-button-base {
+    margin-left: 0;
+  }
+}

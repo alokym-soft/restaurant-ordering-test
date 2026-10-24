@@ -8,7 +8,8 @@ describe('openPriceValidator', () => {
 
   it('accepts amounts within the limits, including both ends', () => {
     expect(validate('5')).toBeNull();
-    expect(validate('12,50')).toBeNull();
+    expect(validate('12.50')).toBeNull();
+    expect(validate('12,50')).toEqual({ format: true });
     expect(validate('20.00')).toBeNull();
   });
 

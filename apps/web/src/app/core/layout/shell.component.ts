@@ -49,13 +49,18 @@ import { ConnectionBannerComponent } from './connection-banner.component';
     }
     .toolbar {
       flex: none;
-      gap: 8px;
+      gap: var(--space-2);
     }
     .brand {
       color: inherit;
       text-decoration: none;
       font: var(--mat-sys-title-large);
-      margin-right: 16px;
+      margin-right: var(--space-4);
+    }
+    .nav {
+      display: flex;
+      min-width: 0;
+      overflow-x: auto;
     }
     .nav .active,
     .cart.active {
@@ -65,12 +70,26 @@ import { ConnectionBannerComponent } from './connection-banner.component';
       flex: 1;
     }
     .cart {
-      margin-right: 16px;
+      flex: none;
+      margin-right: var(--space-4);
     }
     .content {
       flex: 1;
       min-height: 0;
       overflow: auto;
+    }
+    /* Narrow screens: the brand gives its space to the navigation. */
+    @media (max-width: 480px) {
+      .toolbar {
+        gap: 0;
+        padding: 0 var(--space-1);
+      }
+      .brand {
+        display: none;
+      }
+      .cart {
+        margin-right: var(--space-2);
+      }
     }
   `,
 })

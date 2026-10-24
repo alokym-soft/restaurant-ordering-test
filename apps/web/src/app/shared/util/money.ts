@@ -1,7 +1,7 @@
 import { CURRENCY, type Minor } from '@restaurant/contracts';
 
 /**
- * Money helpers. All amounts are integers in minor units (kopiyky); there is no float arithmetic.
+ * Money helpers. All amounts are integers in minor units (cents); there is no float arithmetic.
  * Conversion to major units happens only in `formatMoney`, for display.
  */
 
@@ -39,11 +39,12 @@ export function clampMoney(value: Minor, min: Minor, max: Minor): Minor {
 }
 
 /**
- * Parses user input in major units ("12", "12.5", "12,50") into minor units without floats.
- * Returns `null` for anything that is not a non-negative amount with at most two decimals.
+ * Parses user input in major units ("12", "12.5", "12.50") into minor units without floats.
+ * The decimal separator is always ".". Returns `null` for anything that is not a non-negative
+ * amount with at most two decimals.
  */
 export function parseMoney(input: string): Minor | null {
-  const match = /^\s*(\d{1,9})(?:[.,](\d{1,2}))?\s*$/.exec(input);
+  const match = /^\s*(\d{1,9})(?:\.(\d{1,2}))?\s*$/.exec(input);
   if (!match) return null;
   const [, whole = '0', fraction = ''] = match;
   return Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
@@ -57,21 +58,20 @@ export function toMajorString(value: Minor): string {
   return `${sign}${Math.trunc(abs / 100)}.${String(abs % 100).padStart(2, '0')}`;
 }
 
-const formatters = new Map<string, Intl.NumberFormat>();
+const formatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: CURRENCY,
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
-/** Formats minor units for display, for example 1250 → "12,50 ₴" (uk-UA). */
-export function formatMoney(value: Minor, locale = 'uk-UA'): string {
+/** Currency symbol for input prefixes, for example "$". Derived from `CURRENCY`, never hardcoded. */
+export const CURRENCY_SYMBOL: string =
+  formatter.formatToParts(0).find((part) => part.type === 'currency')?.value ?? CURRENCY;
+
+/** Formats minor units for display, for example 1250 → "$12.50". */
+export function formatMoney(value: Minor): string {
   assertMinor(value);
-  let formatter = formatters.get(locale);
-  if (!formatter) {
-    formatter = new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: CURRENCY,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    formatters.set(locale, formatter);
-  }
   // Display only: the division result is never used for arithmetic.
   return formatter.format(value / 100);
 }

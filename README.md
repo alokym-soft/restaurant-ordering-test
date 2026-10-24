@@ -165,7 +165,9 @@ liveness detection. Also rejected: socket.io (extra protocol and bundle weight, 
 
 ### Pricing and money
 
-- All amounts are integers in minor units; floats are never used for money.
+- All amounts are integers in cents; floats are never used for money. They are converted only for
+  display, with `Intl.NumberFormat` as USD in en-US format (`1250` → `$12.50`). Money inputs accept `.`
+  as the decimal separator and at most two decimals, and are converted to cents by the money utils.
 - `Pricing` is a discriminated union: `fixed` with a price, or `open` with `min`/`max`. The compiler
   forces both cases to be handled. Open price is entered in a dialog when adding to the cart and
   validated against the item's limits on both client and server.
@@ -199,7 +201,7 @@ Requests are validated by small hand-written parsers; every invalid field is rep
 `400 VALIDATION_FAILED` with `details.fields`.
 
 - Names: non-empty after trimming, up to 100 characters; descriptions up to 500.
-- Amounts: integers in minor units, 0 to 100 000 000. Open pricing requires `min <= max` and `max >= 1`.
+- Amounts: integers in cents, 0 to 100 000 000 ($1,000,000). Open pricing requires `min <= max` and `max >= 1`.
 - Orders: 1 to 200 lines, quantity an integer from 1 to 99, discount an integer `>= 0`
   (clamped to the subtotal), and an `Idempotency-Key` header that is a UUID.
 - An item must reference an existing category.
@@ -242,8 +244,10 @@ Requests are validated by small hand-written parsers; every invalid field is rep
 ## Deliberate simplifications
 
 - No authentication or roles; Setup is open to everyone.
-- No database; data lives in memory and resets on restart. Seed data is deterministic.
-- One currency (UAH), no taxes, service fees or tips.
+- No database; data lives in memory and resets on restart. Seed data is deterministic: dishes cost
+  $3–$35, open-price items allow from $5–$20 up to at most $100.
+- Single currency (USD), no localization of number or currency formats (dates are en-US too);
+  no taxes, service fees or tips.
 - Order statuses are simulated by a server timer; there is no kitchen UI.
 - All clients see all orders; there is no notion of a customer.
 - The event buffer lives in memory of a single server instance.

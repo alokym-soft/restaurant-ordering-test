@@ -6,7 +6,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { Store } from '@ngrx/store';
 import { firstValueFrom } from 'rxjs';
 import type { Category, CategoryId, ItemId, MenuItem } from '@restaurant/contracts';
-import { ConfirmDialogComponent, type ConfirmDialogData } from '@shared/ui';
+import { ConfirmDialogComponent, type ConfirmDialogData, DIALOG_SIZE } from '@shared/ui';
 import {
   SetupPageActions,
   categoryKey,
@@ -42,7 +42,7 @@ import { ItemPanelComponent, NEW_ITEM_ID } from './item-panel.component';
       />
       <div class="items">
         <div class="items-head">
-          <h2>{{ selectedCategoryName() }}</h2>
+          <h2 class="truncate" [title]="selectedCategoryName()">{{ selectedCategoryName() }}</h2>
           <button mat-button type="button" [disabled]="!selectedCategoryId()" (click)="createItem()">Add item</button>
         </div>
         @if (items().length === 0) {
@@ -72,14 +72,16 @@ import { ItemPanelComponent, NEW_ITEM_ID } from './item-panel.component';
       height: 100%;
     }
     .page {
+      position: relative;
       display: flex;
-      gap: 16px;
+      gap: var(--space-4);
       height: 100%;
-      padding: 16px;
+      padding: var(--space-4);
       box-sizing: border-box;
     }
     .categories {
-      flex: 0 0 320px;
+      flex: 0 1 280px;
+      min-width: 200px;
     }
     .items {
       flex: 1;
@@ -91,8 +93,10 @@ import { ItemPanelComponent, NEW_ITEM_ID } from './item-panel.component';
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: var(--space-2);
     }
     .items-head h2 {
+      flex: 1;
       margin: 0;
       font: var(--mat-sys-title-medium);
     }
@@ -221,7 +225,7 @@ export class SetupPageComponent {
         message: 'Only empty categories can be deleted. This cannot be undone.',
         confirmLabel: 'Delete',
       },
-      width: '400px',
+      ...DIALOG_SIZE,
     });
     if (await firstValueFrom(ref.afterClosed())) {
       this.store.dispatch(SetupPageActions.categoryDeleteConfirmed({ id: category.id }));
@@ -231,7 +235,7 @@ export class SetupPageComponent {
   private async openCategoryDialog(data: CategoryDialogData): Promise<CategoryDialogResult | undefined> {
     const ref = this.dialog.open<CategoryDialogComponent, CategoryDialogData, CategoryDialogResult>(
       CategoryDialogComponent,
-      { data, width: '400px' },
+      { data, ...DIALOG_SIZE },
     );
     return firstValueFrom(ref.afterClosed());
   }

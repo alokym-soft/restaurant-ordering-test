@@ -8,7 +8,7 @@ import { Store } from '@ngrx/store';
 import { firstValueFrom } from 'rxjs';
 import { connectionFeature } from '@core/realtime';
 import { ConfirmDialogComponent, type ConfirmDialogData } from '@shared/ui';
-import { parseMoney, toMajorString } from '@shared/util/money';
+import { CURRENCY_SYMBOL, parseMoney, toMajorString } from '@shared/util/money';
 import {
   CartPageActions,
   type CartLineView,
@@ -71,7 +71,8 @@ import {
         </div>
         <div class="bottom">
           <mat-form-field class="discount">
-            <mat-label>Discount, ₴</mat-label>
+            <mat-label>Discount</mat-label>
+            <span matTextPrefix>{{ currencySymbol }}&nbsp;</span>
             <input
               matInput
               inputmode="decimal"
@@ -134,8 +135,11 @@ import {
       gap: 24px;
       margin-top: 16px;
     }
+    .discount,
     .summary {
       flex: 0 1 320px;
+    }
+    .summary {
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -146,6 +150,7 @@ import {
   `,
 })
 export class CartPageComponent {
+  protected readonly currencySymbol = CURRENCY_SYMBOL;
   private readonly store = inject(Store);
   private readonly dialog = inject(MatDialog);
 

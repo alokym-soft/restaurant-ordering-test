@@ -2,7 +2,10 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { MatButtonModule } from '@angular/material/button';
 import type { ConnectionStatus } from '@core/realtime';
 
-/** Non-blocking connection banner, fixed to the bottom so it never shifts the layout. */
+/**
+ * Non-blocking connection banner below the content. It takes its own space at the bottom of the
+ * shell, so it never covers the last rows or the checkout button; content above it does not move.
+ */
 @Component({
   selector: 'app-connection-banner',
   imports: [MatButtonModule],
@@ -21,17 +24,17 @@ import type { ConnectionStatus } from '@core/realtime';
     }
   `,
   styles: `
+    :host {
+      flex: none;
+    }
     .banner {
-      position: fixed;
-      inset-inline: 0;
-      bottom: 0;
-      z-index: 10;
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: center;
-      gap: 12px;
+      gap: var(--space-1) var(--space-3);
       min-height: 48px;
-      padding: 4px 16px;
+      padding: var(--space-1) var(--space-4);
       background: var(--mat-sys-inverse-surface);
       color: var(--mat-sys-inverse-on-surface);
       font: var(--mat-sys-body-medium);

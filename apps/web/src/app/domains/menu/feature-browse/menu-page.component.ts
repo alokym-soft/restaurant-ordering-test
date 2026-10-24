@@ -11,7 +11,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { Store } from '@ngrx/store';
 import { firstValueFrom } from 'rxjs';
 import { NotificationService } from '@core/errors';
-import { ErrorStateComponent } from '@shared/ui';
+import { DIALOG_SIZE, ErrorStateComponent } from '@shared/ui';
 import { selectCartIsLocked } from '@cart';
 import {
   MenuPageActions,
@@ -78,7 +78,7 @@ export class MenuPageComponent {
     } else {
       const ref = this.dialog.open<OpenPriceDialogComponent, OpenPriceDialogData, OpenPriceDialogResult>(
         OpenPriceDialogComponent,
-        { data: { name: item.name, min: item.pricing.min, max: item.pricing.max, quantity }, width: '400px' },
+        { data: { name: item.name, min: item.pricing.min, max: item.pricing.max, quantity }, ...DIALOG_SIZE },
       );
       const result = await firstValueFrom(ref.afterClosed());
       if (!result) return;

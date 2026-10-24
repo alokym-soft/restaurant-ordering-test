@@ -62,7 +62,9 @@ async function render(initialState: ReturnType<typeof state>) {
   await fixture.whenStable();
   const element = fixture.nativeElement as HTMLElement;
   const button = (text: string) =>
-    Array.from(element.querySelectorAll('button')).find((b) => b.textContent?.trim() === text);
+    Array.from(element.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === text || b.getAttribute('aria-label') === text,
+    );
   return { element, button, dispatched };
 }
 
@@ -83,7 +85,7 @@ describe('CartPageComponent checkout', () => {
   it('disables checkout and editing while submitting', async () => {
     const { button } = await render(state({ status: 'submitting', idempotencyKey: 'k1' }));
     expect(button('Placing order…')?.disabled).toBe(true);
-    expect(button('Remove')?.disabled).toBe(true);
+    expect(button('Remove Soup')?.disabled).toBe(true);
   });
 
   it('offers only retry after an ambiguous failure', async () => {
@@ -96,7 +98,7 @@ describe('CartPageComponent checkout', () => {
     );
     expect(element.textContent).toContain('Your order may have been placed');
     expect(button('Place order')).toBeUndefined();
-    expect(button('Remove')?.disabled).toBe(true);
+    expect(button('Remove Soup')?.disabled).toBe(true);
     button('Retry')?.click();
     expect(dispatched).toContain(CartPageActions.retryClicked.type);
   });
