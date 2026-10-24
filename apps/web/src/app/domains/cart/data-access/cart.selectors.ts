@@ -1,9 +1,10 @@
 import { createSelector } from '@ngrx/store';
-import type { MenuChange, MenuItem, Minor } from '@restaurant/contracts';
+import type { CreateOrderRequest, MenuChange, MenuItem, Minor } from '@restaurant/contracts';
 import { selectItemEntities } from '@menu';
 import { addMoney, multiplyMoney } from '@shared/util/money';
 import { cartFeature, cartLineAdapter } from './cart.feature';
 import type { CartLine } from './cart.models';
+import { type CheckoutLineOutcome, type CheckoutReviewRow, isCheckoutLocked } from './checkout.models';
 
 export interface CartLineView {
   line: CartLine;
@@ -65,6 +66,38 @@ export const selectCartIsEmpty = createSelector(selectCartLines, (lines) => line
 
 export const selectCartHasIssues = createSelector(selectCartLineViews, (views) => views.some((view) => view.issue));
 
+function outcomeOf(view: CartLineView, issue: MenuChange): CheckoutLineOutcome {
+  switch (issue.kind) {
+    case 'price_changed':
+      return {
+        kind: 'reprice',
+        from: issue.previous,
+        to: issue.current,
+        itemVersion: view.currentItemVersion ?? view.line.itemVersion,
+      };
+    case 'open_price_out_of_range':
+      return { kind: 'remove', reason: 'out_of_range', min: issue.min, max: issue.max };
+    default:
+      return { kind: 'remove', reason: issue.kind };
+  }
+}
+
+/**
+ * One row per affected line with exactly what accepting will do. Built from the live menu, which
+ * already includes the items returned by a `409 MENU_CHANGED`.
+ */
+export const selectCheckoutReview = createSelector(selectCartLineViews, (views): CheckoutReviewRow[] =>
+  views.flatMap((view) =>
+    view.issue
+      ? [{ lineId: view.line.id, name: view.line.name, quantity: view.line.quantity, outcome: outcomeOf(view, view.issue) }]
+      : [],
+  ),
+);
+
+export const selectCartIssues = createSelector(selectCartLineViews, (views): MenuChange[] =>
+  views.flatMap((view) => (view.issue ? [view.issue] : [])),
+);
+
 export const selectCartTotals = createSelector(
   selectCartLineViews,
   cartFeature.selectDiscount,
@@ -73,4 +106,21 @@ export const selectCartTotals = createSelector(
     const discount = Math.min(requestedDiscount, subtotal);
     return { subtotal, requestedDiscount, discount, total: subtotal - discount };
   },
+);
+
+export const selectCheckout = cartFeature.selectCheckout;
+
+export const selectCheckoutStatus = createSelector(selectCheckout, (checkout) => checkout.status);
+
+/** True while a request is in flight or its outcome is unknown; the cart cannot be edited. */
+export const selectCartIsLocked = createSelector(selectCheckout, isCheckoutLocked);
+
+/** Exactly what is sent; any change here must invalidate the idempotency key. */
+export const selectOrderRequest = createSelector(
+  selectCartLines,
+  cartFeature.selectDiscount,
+  (lines, discount): CreateOrderRequest => ({
+    lines: lines.map(({ itemId, quantity, unitPrice, itemVersion }) => ({ itemId, quantity, unitPrice, itemVersion })),
+    discount,
+  }),
 );

@@ -12,6 +12,7 @@ import { Store } from '@ngrx/store';
 import { firstValueFrom } from 'rxjs';
 import { NotificationService } from '@core/errors';
 import { ErrorStateComponent } from '@shared/ui';
+import { selectCartIsLocked } from '@cart';
 import {
   MenuPageActions,
   type MenuRow,
@@ -53,6 +54,7 @@ export class MenuPageComponent {
   protected readonly error = this.store.selectSignal(menuFeature.selectError);
   protected readonly showSkeleton = this.store.selectSignal(selectMenuIsEmptyLoading);
   protected readonly hasRows = computed(() => this.rows().length > 0);
+  private readonly cartLocked = this.store.selectSignal(selectCartIsLocked);
 
   protected readonly trackRow = (_index: number, row: MenuRow): string => `${row.kind}:${row.id}`;
 
@@ -65,6 +67,10 @@ export class MenuPageComponent {
   }
 
   protected async add({ item, quantity }: MenuItemAdd): Promise<void> {
+    if (this.cartLocked()) {
+      this.notifications.error('Your last order is not confirmed yet. Open the cart to retry it first.');
+      return;
+    }
     let unitPrice: number;
     let finalQuantity = quantity;
     if (item.pricing.kind === 'fixed') {

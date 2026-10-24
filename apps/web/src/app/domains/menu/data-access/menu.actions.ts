@@ -1,5 +1,5 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
-import type { ItemId, MenuEvent, MenuSnapshot, Minor } from '@restaurant/contracts';
+import type { ItemId, MenuEvent, MenuItem, MenuSnapshot, Minor } from '@restaurant/contracts';
 import type { HttpApiError } from '@core/http';
 
 export const MenuApiActions = createActionGroup({
@@ -8,6 +8,11 @@ export const MenuApiActions = createActionGroup({
     'Snapshot Requested': emptyProps(),
     'Snapshot Loaded': props<{ snapshot: MenuSnapshot }>(),
     'Snapshot Failed': props<{ error: HttpApiError }>(),
+    /**
+     * Current items reported by another endpoint (checkout `409 MENU_CHANGED`), so the menu does
+     * not wait for the stream to catch up. Applied only where newer than what is stored.
+     */
+    'Items Refreshed': props<{ items: MenuItem[]; removedIds: ItemId[] }>(),
   },
 });
 

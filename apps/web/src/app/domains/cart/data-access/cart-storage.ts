@@ -3,6 +3,12 @@ import type { ActionReducer, MetaReducer, StoreConfig } from '@ngrx/store';
 import { isMinor } from '@shared/util/money';
 import { type CartState, cartLineAdapter } from './cart.feature';
 import { type CartLine, MAX_LINE_QUANTITY, cartLineId } from './cart.models';
+import {
+  type CheckoutState,
+  UNCONFIRMED_ORDER_MESSAGE,
+  initialCheckoutState,
+  isCheckoutLocked,
+} from './checkout.models';
 
 export const CART_STORAGE_KEY = 'restaurant.cart';
 const STORAGE_VERSION = 1;
@@ -13,6 +19,11 @@ interface StoredCart {
   v: typeof STORAGE_VERSION;
   lines: CartLine[];
   discount: number;
+  /**
+   * Key of an attempt whose outcome is unknown (in flight or failed ambiguously). Restored as a
+   * locked `failed` checkout, so a reload cannot turn a retry into a second order.
+   */
+  pendingKey?: string;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
@@ -42,7 +53,7 @@ function parseLine(value: unknown): CartLine | null {
  * Restores a saved cart. Anything unreadable is ignored: invalid lines are dropped individually,
  * an unknown format or broken JSON yields `null` (an empty cart).
  */
-export function parseStoredCart(raw: string | null): Pick<CartState, 'lines' | 'discount'> | null {
+export function parseStoredCart(raw: string | null): CartState | null {
   if (!raw) return null;
   let value: unknown;
   try {
@@ -53,9 +64,20 @@ export function parseStoredCart(raw: string | null): Pick<CartState, 'lines' | '
   if (!isRecord(value) || value['v'] !== STORAGE_VERSION || !Array.isArray(value['lines'])) return null;
   const lines = (value['lines'] as unknown[]).map(parseLine).filter((line): line is CartLine => line !== null);
   const discount = value['discount'];
+  const pendingKey = value['pendingKey'];
+  const checkout: CheckoutState =
+    typeof pendingKey === 'string' && pendingKey.length > 0 && lines.length > 0
+      ? {
+          ...initialCheckoutState,
+          status: 'failed',
+          idempotencyKey: pendingKey,
+          error: { code: 'INTERNAL', message: UNCONFIRMED_ORDER_MESSAGE, status: 0 },
+        }
+      : initialCheckoutState;
   return {
     lines: cartLineAdapter.setAll(lines, cartLineAdapter.getInitialState()),
     discount: isMinor(discount) && discount >= 0 ? discount : 0,
+    checkout,
   };
 }
 
@@ -65,6 +87,9 @@ export function serializeCart(state: CartState): string {
     lines: cartLineAdapter.getSelectors().selectAll(state.lines),
     discount: state.discount,
   };
+  if (isCheckoutLocked(state.checkout) && state.checkout.idempotencyKey) {
+    stored.pendingKey = state.checkout.idempotencyKey;
+  }
   return JSON.stringify(stored);
 }
 

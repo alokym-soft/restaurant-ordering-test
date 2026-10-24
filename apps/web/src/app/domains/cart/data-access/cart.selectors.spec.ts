@@ -2,7 +2,14 @@ import type { MenuItem } from '@restaurant/contracts';
 import { MenuApiActions, initialMenuState, menuFeature } from '@menu';
 import { cartFeature, cartLineAdapter, initialCartState } from './cart.feature';
 import { type CartLine, cartLineId } from './cart.models';
-import { lineIssue, selectCartCount, selectCartHasIssues, selectCartLineViews, selectCartTotals } from './cart.selectors';
+import {
+  lineIssue,
+  selectCartCount,
+  selectCartHasIssues,
+  selectCartLineViews,
+  selectCartTotals,
+  selectCheckoutReview,
+} from './cart.selectors';
 
 function item(id: string, overrides: Partial<MenuItem> = {}): MenuItem {
   return {
@@ -97,5 +104,55 @@ describe('cart selectors', () => {
 
   it('feature name matches the root state key', () => {
     expect(cartFeature.name).toBe('cart');
+  });
+});
+
+describe('selectCheckoutReview', () => {
+  it('describes what accepting does to each affected line', () => {
+    const state = rootState(
+      [
+        line('fine'),
+        line('pricey', { unitPrice: 1000 }),
+        line('gone'),
+        line('off'),
+        line('open', { priceKind: 'open', unitPrice: 300 }),
+      ],
+      [
+        item('fine'),
+        item('pricey', { pricing: { kind: 'fixed', price: 1500 }, version: 3 }),
+        item('off', { available: false }),
+        item('open', { pricing: { kind: 'open', min: 500, max: 900 } }),
+      ],
+    );
+    expect(selectCheckoutReview(state).map(({ lineId, outcome }) => ({ lineId, outcome }))).toEqual([
+      { lineId: 'pricey', outcome: { kind: 'reprice', from: 1000, to: 1500, itemVersion: 3 } },
+      { lineId: 'gone', outcome: { kind: 'remove', reason: 'removed' } },
+      { lineId: 'off', outcome: { kind: 'remove', reason: 'unavailable' } },
+      { lineId: 'open@300', outcome: { kind: 'remove', reason: 'out_of_range', min: 500, max: 900 } },
+    ]);
+  });
+});
+
+describe('menu items refreshed after 409', () => {
+  it('upserts newer items and drops removed ones, so live issues match the server', () => {
+    const state = rootState([line('a'), line('b')], [item('a'), item('b')]);
+    const menu = menuFeature.reducer(
+      state.menu,
+      MenuApiActions.itemsRefreshed({
+        items: [item('a', { pricing: { kind: 'fixed', price: 1200 }, version: 2 })],
+        removedIds: ['b'],
+      }),
+    );
+    const issues = selectCartLineViews({ ...state, menu }).map((view) => view.issue?.kind ?? null);
+    expect(issues).toEqual(['price_changed', 'removed']);
+  });
+
+  it('ignores items that are not newer than the stored ones', () => {
+    const state = rootState([], [item('a', { version: 5 })]);
+    const menu = menuFeature.reducer(
+      state.menu,
+      MenuApiActions.itemsRefreshed({ items: [item('a', { name: 'old', version: 4 })], removedIds: [] }),
+    );
+    expect(menu).toBe(state.menu);
   });
 });
