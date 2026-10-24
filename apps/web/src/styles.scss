@@ -47,6 +47,19 @@ body {
   --space-6: 32px;
 }
 
+// Form fields fill their dialog; dialogs themselves are capped by DIALOG_SIZE.
+.mat-mdc-dialog-content .mat-mdc-form-field {
+  width: 100%;
+}
+
+// One-line text that truncates with an ellipsis; pair it with a `title` holding the full text.
+.truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
 // On narrow screens dialog actions stack full width, primary action on top,
 // instead of wrapping unevenly.
 @media (max-width: 480px) {

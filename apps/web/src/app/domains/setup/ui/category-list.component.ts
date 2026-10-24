@@ -32,8 +32,8 @@ export interface CategoryListEntry {
             [attr.aria-current]="entry.category.id === selectedId() ? 'true' : null"
             (click)="selected.emit(entry.category.id)"
           >
-            <span class="name">{{ entry.category.name }}</span>
-            <span class="meta">#{{ entry.category.sortOrder }} · {{ entry.itemCount }} items</span>
+            <span class="name truncate" [title]="entry.category.name">{{ entry.category.name }}</span>
+            <span class="meta truncate">#{{ entry.category.sortOrder }} · {{ entry.itemCount }} items</span>
           </button>
           <span class="pending" [class.pending--visible]="entry.pending">Saving…</span>
           <button
@@ -98,8 +98,8 @@ export interface CategoryListEntry {
       min-width: 0;
       display: flex;
       flex-direction: column;
-      align-items: flex-start;
-      padding: 8px;
+      align-items: stretch;
+      padding: var(--space-2);
       border: 0;
       background: none;
       color: inherit;

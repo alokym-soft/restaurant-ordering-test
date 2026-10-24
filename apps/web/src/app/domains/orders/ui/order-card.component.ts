@@ -19,7 +19,7 @@ import { StatusBadgeComponent } from './status-badge.component';
       <ul class="lines">
         @for (line of order().lines; track line.itemId + '@' + line.unitPrice) {
           <li>
-            <span>{{ line.quantity }} × {{ line.name }}</span>
+            <span class="truncate" [title]="line.name">{{ line.quantity }} × {{ line.name }}</span>
             <span class="amount">{{ format(line.lineTotal) }}</span>
           </li>
         }
@@ -80,6 +80,9 @@ import { StatusBadgeComponent } from './status-badge.component';
       color: var(--mat-sys-on-surface-variant);
     }
     .amount {
+      flex: none;
+      white-space: nowrap;
+      text-align: right;
       font-variant-numeric: tabular-nums;
     }
   `,

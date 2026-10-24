@@ -35,7 +35,7 @@ export function openPriceValidator(min: Minor, max: Minor) {
   imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h2 mat-dialog-title>{{ data.name }}</h2>
+    <h2 mat-dialog-title class="truncate" [title]="data.name">{{ data.name }}</h2>
     <form [formGroup]="form" (ngSubmit)="submit()">
       <mat-dialog-content class="content">
         <mat-form-field>

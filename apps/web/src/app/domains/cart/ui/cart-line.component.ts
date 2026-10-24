@@ -21,7 +21,7 @@ export const CART_MAX_QUANTITY = 99;
   template: `
     <div class="line" [class.line--issue]="!!view().issue">
       <div class="text">
-        <span class="name">{{ view().line.name }}</span>
+        <span class="name truncate" [title]="view().line.name">{{ view().line.name }}</span>
         <span class="unit">
           {{ unitLabel() }}
           @if (view().line.priceKind === 'open') {
@@ -109,8 +109,9 @@ export const CART_MAX_QUANTITY = 99;
     }
     .issue {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 4px;
+      column-gap: var(--space-1);
       font: var(--mat-sys-body-small);
       color: var(--mat-sys-error);
     }
@@ -124,8 +125,10 @@ export const CART_MAX_QUANTITY = 99;
       font-variant-numeric: tabular-nums;
     }
     .total {
-      width: 120px;
+      flex: none;
+      min-width: 96px;
       text-align: right;
+      white-space: nowrap;
       font-variant-numeric: tabular-nums;
     }
   `,

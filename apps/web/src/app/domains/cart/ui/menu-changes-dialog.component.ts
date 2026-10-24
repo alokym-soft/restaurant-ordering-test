@@ -49,7 +49,7 @@ export function describeOutcome(outcome: MenuChangesRow['outcome']): string {
       <ul class="rows">
         @for (row of rows; track row.lineId) {
           <li class="row" [class.row--remove]="row.outcome.kind === 'remove'">
-            <span class="name">{{ row.quantity }} × {{ row.name }}</span>
+            <span class="name truncate" [title]="row.name">{{ row.quantity }} × {{ row.name }}</span>
             <span class="outcome">{{ describe(row.outcome) }}</span>
           </li>
         }

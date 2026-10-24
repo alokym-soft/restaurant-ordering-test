@@ -135,8 +135,11 @@ import {
       gap: 24px;
       margin-top: 16px;
     }
+    .discount,
     .summary {
       flex: 0 1 320px;
+    }
+    .summary {
       display: flex;
       flex-direction: column;
       gap: 12px;

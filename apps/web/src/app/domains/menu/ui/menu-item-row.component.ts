@@ -25,7 +25,7 @@ export const MAX_QUANTITY = 99;
   template: `
     <div class="row" [class.row--unavailable]="!item().available">
       <div class="text">
-        <span class="name">{{ item().name }}</span>
+        <span class="name" [title]="item().name">{{ item().name }}</span>
         <span class="meta">
           @if (!item().available) {
             <span class="badge">Unavailable</span>

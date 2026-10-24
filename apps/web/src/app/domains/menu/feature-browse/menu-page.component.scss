@@ -23,6 +23,15 @@
   white-space: nowrap;
 }
 
+.category-chip {
+  flex: none;
+  max-width: 240px;
+}
+
+.category-chip-label {
+  display: block;
+}
+
 .categories--skeleton {
   border-bottom: 1px solid var(--mat-sys-outline-variant);
 }

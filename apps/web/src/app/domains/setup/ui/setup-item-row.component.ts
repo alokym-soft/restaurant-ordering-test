@@ -13,7 +13,7 @@ export const SETUP_ROW_HEIGHT = 56;
   host: { '[attr.data-item-id]': 'item().id', '[class.selected]': 'selected()' },
   template: `
     <button type="button" class="open" [attr.aria-label]="'Edit ' + item().name" (click)="open.emit()">
-      <span class="name">{{ item().name }}</span>
+      <span class="name" [title]="item().name">{{ item().name }}</span>
       <span class="price">{{ priceLabel() }}</span>
     </button>
     <span class="pending" [class.pending--visible]="pending()" aria-live="polite">
@@ -61,6 +61,10 @@ export const SETUP_ROW_HEIGHT = 56;
       font: var(--mat-sys-title-small);
     }
     .price {
+      flex: none;
+      min-width: 17ch;
+      text-align: right;
+      white-space: nowrap;
       font-variant-numeric: tabular-nums;
       color: var(--mat-sys-on-surface-variant);
     }
