@@ -70,6 +70,26 @@ describe('parseStoredCart', () => {
       checkout: initialCartState.checkout,
     });
   });
+
+  it('keeps an unconfirmed attempt locked across a reload', () => {
+    const state: CartState = {
+      ...initialCartState,
+      lines: cartLineAdapter.setAll([{ ...validLine, id: 'a' }], initialCartState.lines),
+      checkout: { ...initialCartState.checkout, status: 'submitting', idempotencyKey: 'k1' },
+    };
+    const restored = parseStoredCart(serializeCart(state));
+    expect(restored?.checkout).toMatchObject({ status: 'failed', idempotencyKey: 'k1' });
+    expect(restored?.checkout.error?.message).toBeTruthy();
+  });
+
+  it('does not store the key of an idle checkout', () => {
+    const state: CartState = {
+      ...initialCartState,
+      lines: cartLineAdapter.setAll([{ ...validLine, id: 'a' }], initialCartState.lines),
+      checkout: { ...initialCartState.checkout, idempotencyKey: 'k1' },
+    };
+    expect(JSON.parse(serializeCart(state))).not.toHaveProperty('pendingKey');
+  });
 });
 
 describe('cartStorageMetaReducer', () => {
