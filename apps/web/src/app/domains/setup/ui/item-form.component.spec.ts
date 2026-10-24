@@ -56,6 +56,14 @@ describe('ItemFormComponent', () => {
     expect(view.saves[0]?.expectedVersion).toBe(2);
   });
 
+  it('loads a lower version too, as after a server restart', async () => {
+    const view = await render(soup(3));
+    await view.setItem(soup(1, 'Borscht'));
+    expect(view.nameInput().value).toBe('Borscht');
+    await view.submit();
+    expect(view.saves[0]?.expectedVersion).toBe(1);
+  });
+
   it('keeps edits and offers the latest version when dirty', async () => {
     const view = await render(soup(1));
     await view.type('My soup');
