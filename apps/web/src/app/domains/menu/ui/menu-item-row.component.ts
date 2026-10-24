@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, linkedSignal, output } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MenuItem } from '@restaurant/contracts';
 import { formatMoney } from '@shared/util/money';
 import { MENU_ROW_HEIGHT } from './menu-row-height';
@@ -17,7 +19,7 @@ export const MAX_QUANTITY = 99;
  */
 @Component({
   selector: 'app-menu-item-row',
-  imports: [MatButtonModule],
+  imports: [MatButtonModule, MatIconModule, MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[style.height.px]': 'rowHeight' },
   template: `
@@ -34,23 +36,25 @@ export const MAX_QUANTITY = 99;
       <span class="price">{{ priceLabel() }}</span>
       <div class="stepper" role="group" [attr.aria-label]="'Quantity of ' + item().name">
         <button
-          mat-button
+          mat-icon-button
           type="button"
           aria-label="Decrease quantity"
+          matTooltip="Decrease quantity"
           [disabled]="!item().available || quantity() <= 1"
           (click)="quantity.set(quantity() - 1)"
         >
-          −
+          <mat-icon>remove</mat-icon>
         </button>
         <span class="quantity" aria-live="polite">{{ quantity() }}</span>
         <button
-          mat-button
+          mat-icon-button
           type="button"
           aria-label="Increase quantity"
+          matTooltip="Increase quantity"
           [disabled]="!item().available || quantity() >= maxQuantity"
           (click)="quantity.set(quantity() + 1)"
         >
-          +
+          <mat-icon>add</mat-icon>
         </button>
       </div>
       <button
@@ -119,10 +123,6 @@ export const MAX_QUANTITY = 99;
       display: flex;
       align-items: center;
     }
-    .stepper button {
-      min-width: 36px;
-      padding: 0;
-    }
     .quantity {
       width: 24px;
       text-align: center;
@@ -130,7 +130,6 @@ export const MAX_QUANTITY = 99;
     }
     .add {
       flex: none;
-      width: 88px;
     }
   `,
 })

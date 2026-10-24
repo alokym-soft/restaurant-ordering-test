@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import type { Category, CategoryId } from '@restaurant/contracts';
 
 export interface CategoryListEntry {
@@ -10,7 +12,7 @@ export interface CategoryListEntry {
 
 @Component({
   selector: 'app-category-list',
-  imports: [MatButtonModule],
+  imports: [MatButtonModule, MatIconModule, MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="head">
@@ -34,16 +36,23 @@ export interface CategoryListEntry {
             <span class="meta">#{{ entry.category.sortOrder }} · {{ entry.itemCount }} items</span>
           </button>
           <span class="pending" [class.pending--visible]="entry.pending">Saving…</span>
-          <button mat-button type="button" [attr.aria-label]="'Edit ' + entry.category.name" (click)="edit.emit(entry.category)">
-            Edit
+          <button
+            mat-icon-button
+            type="button"
+            matTooltip="Edit"
+            [attr.aria-label]="'Edit ' + entry.category.name"
+            (click)="edit.emit(entry.category)"
+          >
+            <mat-icon>edit</mat-icon>
           </button>
           <button
-            mat-button
+            mat-icon-button
             type="button"
+            matTooltip="Delete"
             [attr.aria-label]="'Delete ' + entry.category.name"
             (click)="remove.emit(entry.category)"
           >
-            Delete
+            <mat-icon>delete</mat-icon>
           </button>
         </li>
       } @empty {

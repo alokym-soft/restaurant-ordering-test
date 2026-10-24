@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MenuChange, Minor } from '@restaurant/contracts';
 import { formatMoney } from '@shared/util/money';
 
@@ -14,7 +16,7 @@ export const CART_MAX_QUANTITY = 99;
 
 @Component({
   selector: 'app-cart-line',
-  imports: [MatButtonModule],
+  imports: [MatButtonModule, MatIconModule, MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="line" [class.line--issue]="!!view().issue">
@@ -37,34 +39,37 @@ export const CART_MAX_QUANTITY = 99;
       </div>
       <div class="stepper" role="group" [attr.aria-label]="'Quantity of ' + view().line.name">
         <button
-          mat-button
+          mat-icon-button
           type="button"
           aria-label="Decrease quantity"
+          matTooltip="Decrease quantity"
           [disabled]="disabled() || view().line.quantity <= 1"
           (click)="quantityChange.emit(view().line.quantity - 1)"
         >
-          −
+          <mat-icon>remove</mat-icon>
         </button>
         <span class="quantity">{{ view().line.quantity }}</span>
         <button
-          mat-button
+          mat-icon-button
           type="button"
           aria-label="Increase quantity"
+          matTooltip="Increase quantity"
           [disabled]="disabled() || view().line.quantity >= maxQuantity"
           (click)="quantityChange.emit(view().line.quantity + 1)"
         >
-          +
+          <mat-icon>add</mat-icon>
         </button>
       </div>
       <span class="total">{{ totalLabel() }}</span>
       <button
-        mat-button
+        mat-icon-button
         type="button"
+        matTooltip="Remove"
         [attr.aria-label]="'Remove ' + view().line.name"
         [disabled]="disabled()"
         (click)="remove.emit()"
       >
-        Remove
+        <mat-icon>delete</mat-icon>
       </button>
     </div>
   `,
@@ -112,10 +117,6 @@ export const CART_MAX_QUANTITY = 99;
     .stepper {
       display: flex;
       align-items: center;
-    }
-    .stepper button {
-      min-width: 36px;
-      padding: 0;
     }
     .quantity {
       width: 24px;
