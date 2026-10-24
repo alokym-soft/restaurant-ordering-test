@@ -176,6 +176,21 @@ the form is refreshed with the latest version and the user is told why.
 Rows show a pending state until the resulting event arrives.
 Deleting a category that still has items is refused with `409 CATEGORY_NOT_EMPTY`.
 
+- **One source of truth.** Setup keeps only mutation status (requests in flight, errors, and the
+  version each save is waiting for). The data is read from the menu store, which changes only from
+  snapshots and events, never from HTTP responses. A row is pending while its request runs and
+  until the menu store holds at least the version the server returned, so the event itself clears
+  it. Mutations of the same row are sent one after another; different rows go in parallel.
+- **Live edits while a form is open.** The item form remembers the version it was loaded from.
+  While the form is untouched, newer versions arriving live are loaded silently. Once the user has
+  edited it, their edits are kept and a notice "This item was changed elsewhere" offers to load the
+  latest version. Saving always sends the loaded version, so saving stale edits ends in a version
+  conflict: a snackbar explains it and the form shows the latest version. If the item is deleted
+  while open, the panel closes with a message.
+- The item form is a side panel driven by the URL (`?item=<id>`, `?item=new&category=<id>`), so it
+  can be linked and survives a reload. Escape closes it and returns focus to the row; on narrow
+  screens it takes the full width. Deletions go through a confirmation dialog.
+
 ### Server validation
 
 Requests are validated by small hand-written parsers; every invalid field is reported at once as
@@ -244,6 +259,9 @@ Requests are validated by small hand-written parsers; every invalid field is rep
 - The cart is a separate page (`/cart`) rather than a side panel.
 - The orders list is not virtualized: all orders are kept in memory by the server and the list stays
   short in a demo. Each card still re-renders only when its own order changes.
+- Setup has no inline price editing; prices are changed in the item form. Availability can be
+  toggled inline.
+- Items cannot be deleted from Setup; making an item unavailable stops it from being ordered.
 - _TBD: extend during implementation._
 
 ## Production readiness

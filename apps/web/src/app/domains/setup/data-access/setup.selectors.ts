@@ -52,3 +52,15 @@ export const selectItemCountByCategory = createSelector(selectItemEntities, (ent
   }
   return counts;
 });
+
+export const selectSetupItemsByCategory = createSelector(selectItemEntities, (entities) => {
+  const groups = new Map<CategoryId, MenuItem[]>();
+  for (const item of Object.values(entities)) {
+    if (!item) continue;
+    const group = groups.get(item.categoryId);
+    if (group) group.push(item);
+    else groups.set(item.categoryId, [item]);
+  }
+  for (const group of groups.values()) group.sort(bySortOrder);
+  return groups;
+});
