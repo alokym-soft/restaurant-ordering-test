@@ -21,7 +21,7 @@ export const LIMITS = {
   quantityMin: 1,
   quantityMax: 99,
   linesMax: 200,
-  /** 1 000 000 UAH in minor units. */
+  /** $1,000,000 in minor units (cents). */
   amountMax: 100_000_000,
 } as const;
 

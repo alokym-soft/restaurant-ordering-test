@@ -6,7 +6,7 @@ const item = (overrides: Partial<MenuItem> = {}): MenuItem => ({
   id: 'a',
   categoryId: 'c1',
   name: 'Soup',
-  pricing: { kind: 'fixed', price: 12500 },
+  pricing: { kind: 'fixed', price: 1250 },
   available: true,
   sortOrder: 0,
   version: 1,
@@ -40,7 +40,7 @@ describe('MenuItemRowComponent', () => {
 
   it('shows a fixed price or the open-price prompt', async () => {
     let element = await show(item());
-    expect(element.querySelector('.price')?.textContent).toContain('125,00');
+    expect(element.querySelector('.price')?.textContent).toContain('$12.50');
     element = await show(item({ id: 'b', pricing: { kind: 'open', min: 0, max: 1000 } }));
     expect(element.querySelector('.price')?.textContent).toContain('Set your price');
   });

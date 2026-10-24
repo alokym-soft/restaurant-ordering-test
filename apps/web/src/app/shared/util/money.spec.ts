@@ -1,4 +1,5 @@
 import {
+  CURRENCY_SYMBOL,
   addMoney,
   clampMoney,
   formatMoney,
@@ -36,7 +37,8 @@ describe('money', () => {
   it('parses user input without floats', () => {
     expect(parseMoney('12')).toBe(1200);
     expect(parseMoney('12.5')).toBe(1250);
-    expect(parseMoney('12,05')).toBe(1205);
+    expect(parseMoney('12.05')).toBe(1205);
+    expect(parseMoney('12,05')).toBeNull(); // '.' is the only decimal separator
     expect(parseMoney(' 0.99 ')).toBe(99);
     expect(parseMoney('19.999')).toBeNull();
     expect(parseMoney('-1')).toBeNull();
@@ -50,9 +52,9 @@ describe('money', () => {
     expect(toMajorString(-1205)).toBe('-12.05');
   });
 
-  it('formats as UAH', () => {
-    const text = formatMoney(123456, 'en-US');
-    expect(text).toContain('1,234.56');
-    expect(text).toMatch(/UAH|₴/);
+  it('formats as US dollars', () => {
+    expect(formatMoney(123456)).toBe('$1,234.56');
+    expect(formatMoney(5)).toBe('$0.05');
+    expect(CURRENCY_SYMBOL).toBe('$');
   });
 });

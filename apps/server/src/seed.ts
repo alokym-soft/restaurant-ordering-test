@@ -64,13 +64,13 @@ export function generateSeed({ seed = 20261023, categories = 30, itemsPerCategor
     for (let i = 0; i < itemsPerCategory; i++) {
       const n = c * itemsPerCategory + i + 1;
       const isOpen = random() < 0.1;
-      // Prices in minor units, rounded to 5 UAH.
+      // Prices in cents: dishes $3.00–$35.00 in 50-cent steps; open price starts at $5–$20, max up to $100.
       const pricing: Pricing = isOpen
         ? (() => {
-            const min = between(4, 20) * 500;
-            return { kind: 'open', min, max: min + between(4, 40) * 500 };
+            const min = between(1, 4) * 500;
+            return { kind: 'open', min, max: min + between(2, 16) * 500 };
           })()
-        : { kind: 'fixed', price: between(8, 120) * 500 };
+        : { kind: 'fixed', price: between(6, 70) * 50 };
       const name = `${pick(ADJECTIVES)} ${pick(NOUNS)} ${pick(SUFFIXES)}`;
       const item: MenuItem = {
         id: `item-${pad(n, 5)}`,
