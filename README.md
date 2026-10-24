@@ -123,7 +123,9 @@ liveness detection. Also rejected: socket.io (extra protocol and bundle weight, 
 - Every event has a global, strictly increasing `seq`.
 - Snapshots carry the `seq` they reflect. While a snapshot loads, its domain buffers incoming events and then
   applies only those with `seq >` snapshot `seq`, so nothing is lost or applied twice regardless of timing.
-  The same flow serves the initial load, resync, and the lazy orders feature.
+  The same flow serves the initial load, resync, and the lazy orders feature. The orders state is
+  loaded when the page is first opened and stays live after leaving it; an order just placed is shown
+  (and highlighted) from the checkout response before its event arrives, with the same version check.
 - If a client reconnects after the server's event buffer has moved on, the server sends
   `resync_required` and the client refetches snapshots.
 - Upsert events carry the full entity, applied only if its `version` is newer. This is idempotent and
@@ -240,6 +242,8 @@ Requests are validated by small hand-written parsers; every invalid field is rep
 - Live menu updates are applied once per animation frame; in a hidden tab the browser pauses frames, so
   updates are held in memory and applied when the tab becomes visible again.
 - The cart is a separate page (`/cart`) rather than a side panel.
+- The orders list is not virtualized: all orders are kept in memory by the server and the list stays
+  short in a demo. Each card still re-renders only when its own order changes.
 - _TBD: extend during implementation._
 
 ## Production readiness

@@ -3,7 +3,7 @@ import type { EntityState } from '@ngrx/entity';
 import type { Order, OrderId } from '@restaurant/contracts';
 import { ordersFeature } from './orders.feature';
 
-const selectOrderEntities = createSelector(ordersFeature.selectOrders, (state) => state.entities);
+export const selectOrderEntities = createSelector(ordersFeature.selectOrders, (state) => state.entities);
 
 const newestFirst = (a: Order, b: Order): number => b.number - a.number;
 
