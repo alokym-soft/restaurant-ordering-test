@@ -10,7 +10,7 @@ export const SETUP_ROW_HEIGHT = 56;
   selector: 'app-setup-item-row',
   imports: [MatButtonModule, MatSlideToggleModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[attr.data-item-id]': 'item().id', '[class.selected]': 'selected()' },
+  host: { '[attr.data-item-id]': 'item().id', '[class.selected]': 'selected()', '[style.height.px]': 'rowHeight' },
   template: `
     <button type="button" class="open" [attr.aria-label]="'Edit ' + item().name" (click)="open.emit()">
       <span class="name" [title]="item().name">{{ item().name }}</span>
@@ -30,9 +30,8 @@ export const SETUP_ROW_HEIGHT = 56;
     :host {
       display: flex;
       align-items: center;
-      gap: 12px;
-      height: 56px;
-      padding: 0 12px;
+      gap: var(--space-3);
+      padding: 0 var(--space-3);
       box-sizing: border-box;
       border-bottom: 1px solid var(--mat-sys-outline-variant);
     }
@@ -81,6 +80,8 @@ export class SetupItemRowComponent {
   readonly selected = input(false);
   readonly open = output();
   readonly availabilityChange = output<boolean>();
+
+  protected readonly rowHeight = SETUP_ROW_HEIGHT;
 
   protected readonly priceLabel = computed(() => {
     const pricing = this.item().pricing;

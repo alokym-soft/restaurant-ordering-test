@@ -18,9 +18,9 @@ import { MENU_ROW_HEIGHT } from './menu-row-height';
     :host {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: var(--space-3);
       box-sizing: border-box;
-      padding: 0 16px;
+      padding: 0 var(--space-4);
       border-bottom: 1px solid var(--mat-sys-outline-variant);
     }
     .text {
@@ -43,7 +43,16 @@ import { MENU_ROW_HEIGHT } from './menu-row-height';
       width: 70%;
     }
     .bar--price {
-      width: 150px;
+      width: var(--menu-price-width);
+    }
+    @media (max-width: 600px) {
+      :host {
+        gap: var(--space-2);
+        padding: 0 var(--space-3);
+      }
+      .bar--price {
+        display: none;
+      }
     }
     .bar--add {
       width: 196px;

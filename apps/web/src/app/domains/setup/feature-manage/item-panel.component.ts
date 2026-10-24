@@ -63,7 +63,7 @@ export const ITEM_REMOVED_MESSAGE = 'This item was removed elsewhere.';
       display: block;
       flex: 0 0 400px;
       overflow: auto;
-      padding: 0 16px 16px;
+      padding: 0 var(--space-4) var(--space-4);
       box-sizing: border-box;
       border-left: 1px solid var(--mat-sys-outline-variant);
       background: var(--mat-sys-surface);
@@ -76,6 +76,18 @@ export const ITEM_REMOVED_MESSAGE = 'This item was removed elsewhere.';
     }
     .head h2 {
       font: var(--mat-sys-title-medium);
+    }
+    /* Medium screens: overlay the list instead of squeezing it to nothing. */
+    @media (min-width: 721px) and (max-width: 1100px) {
+      :host {
+        position: absolute;
+        inset-block: 0;
+        right: 0;
+        width: 400px;
+        max-width: 100%;
+        z-index: 5;
+        box-shadow: var(--mat-sys-level3);
+      }
     }
     @media (max-width: 720px) {
       :host {

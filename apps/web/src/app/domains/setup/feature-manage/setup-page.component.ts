@@ -72,14 +72,16 @@ import { ItemPanelComponent, NEW_ITEM_ID } from './item-panel.component';
       height: 100%;
     }
     .page {
+      position: relative;
       display: flex;
-      gap: 16px;
+      gap: var(--space-4);
       height: 100%;
-      padding: 16px;
+      padding: var(--space-4);
       box-sizing: border-box;
     }
     .categories {
-      flex: 0 0 320px;
+      flex: 0 1 280px;
+      min-width: 200px;
     }
     .items {
       flex: 1;

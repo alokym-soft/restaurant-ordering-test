@@ -45,6 +45,8 @@ body {
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
+  // Price column of the menu list, shared by rows and skeletons; fits "Set your price".
+  --menu-price-width: 112px;
 }
 
 // Form fields fill their dialog; dialogs themselves are capped by DIALOG_SIZE.

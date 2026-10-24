@@ -27,6 +27,7 @@ export const MAX_QUANTITY = 99;
       <div class="text">
         <span class="name" [title]="item().name">{{ item().name }}</span>
         <span class="meta">
+          <span class="price-inline">{{ priceLabel() }}</span>
           @if (!item().available) {
             <span class="badge">Unavailable</span>
           }
@@ -78,9 +79,9 @@ export const MAX_QUANTITY = 99;
     .row {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: var(--space-3);
       height: 100%;
-      padding: 0 16px;
+      padding: 0 var(--space-4);
     }
     .row--unavailable .text,
     .row--unavailable .price {
@@ -106,17 +107,37 @@ export const MAX_QUANTITY = 99;
       color: var(--mat-sys-on-surface-variant);
     }
     .badge {
-      padding: 0 6px;
-      margin-right: 4px;
+      padding: 0 var(--space-1);
+      margin-right: var(--space-1);
       border-radius: 4px;
       background: var(--mat-sys-error-container);
       color: var(--mat-sys-on-error-container);
     }
     .price {
       flex: none;
-      width: 150px;
+      width: var(--menu-price-width);
       text-align: right;
+      white-space: nowrap;
       font-variant-numeric: tabular-nums;
+    }
+    .price-inline {
+      display: none;
+      margin-right: var(--space-2);
+      color: var(--mat-sys-on-surface);
+      font-variant-numeric: tabular-nums;
+    }
+    /* Narrow screens: the price moves under the name, the row keeps its height. */
+    @media (max-width: 600px) {
+      .row {
+        gap: var(--space-2);
+        padding: 0 var(--space-3);
+      }
+      .price {
+        display: none;
+      }
+      .price-inline {
+        display: inline;
+      }
     }
     .stepper {
       flex: none;

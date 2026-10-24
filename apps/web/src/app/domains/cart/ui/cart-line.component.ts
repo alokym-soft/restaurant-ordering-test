@@ -81,8 +81,22 @@ export const CART_MAX_QUANTITY = 99;
     .line {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+    }
+    /* Narrow screens: name and issue on the first line, controls on the second. */
+    @media (max-width: 600px) {
+      .line {
+        flex-wrap: wrap;
+        row-gap: var(--space-1);
+        padding: var(--space-3);
+      }
+      .text {
+        flex-basis: 100%;
+      }
+      .total {
+        margin-left: auto;
+      }
     }
     .line--issue {
       background: color-mix(in srgb, var(--mat-sys-error-container) 35%, transparent);
