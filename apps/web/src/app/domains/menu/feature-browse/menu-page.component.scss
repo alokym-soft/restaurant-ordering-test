@@ -11,28 +11,9 @@
   margin: 0 auto;
 }
 
-.categories {
-  flex: none;
-  display: flex;
-  gap: 8px;
+/* Same height as app-category-bar (CATEGORY_BAR_HEIGHT). */
+.categories-skeleton {
   height: 56px;
-  box-sizing: border-box;
-  align-items: center;
-  padding: 0 16px;
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-.category-chip {
-  flex: none;
-  max-width: 240px;
-}
-
-.category-chip-label {
-  display: block;
-}
-
-.categories--skeleton {
   border-bottom: 1px solid var(--mat-sys-outline-variant);
 }
 

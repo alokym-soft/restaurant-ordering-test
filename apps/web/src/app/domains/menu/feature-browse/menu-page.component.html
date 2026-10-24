@@ -1,18 +1,6 @@
 <section class="page">
   @if (hasRows()) {
-    <nav class="categories" aria-label="Categories">
-      @for (category of categories(); track category.id) {
-        <button
-          mat-stroked-button
-          type="button"
-          class="category-chip"
-          [title]="category.name"
-          (click)="scrollToCategory(category.rowIndex)"
-        >
-          <span class="category-chip-label truncate">{{ category.name }}</span>
-        </button>
-      }
-    </nav>
+    <app-category-bar [categories]="categories()" [activeId]="activeCategoryId()" (selected)="scrollToCategory($event)" />
 
     @if (status() === 'error') {
       <div class="inline-error" role="alert">
@@ -21,7 +9,12 @@
       </div>
     }
 
-    <cdk-virtual-scroll-viewport class="viewport" [itemSize]="rowHeight" aria-label="Menu">
+    <cdk-virtual-scroll-viewport
+      class="viewport"
+      [itemSize]="rowHeight"
+      aria-label="Menu"
+      (scrolledIndexChange)="firstVisibleRow.set($event)"
+    >
       <div *cdkVirtualFor="let row of rows(); trackBy: trackRow" class="slot" [style.height.px]="rowHeight">
         @if (row.kind === 'category') {
           <h2 class="category"><span class="truncate" [title]="row.name">{{ row.name }}</span></h2>
@@ -35,7 +28,7 @@
     </cdk-virtual-scroll-viewport>
   } @else if (showSkeleton()) {
     <div class="skeletons" aria-busy="true" aria-label="Loading menu">
-      <div class="categories categories--skeleton"></div>
+      <div class="categories-skeleton"></div>
       @for (index of skeletons; track index) {
         <app-menu-skeleton-row />
       }

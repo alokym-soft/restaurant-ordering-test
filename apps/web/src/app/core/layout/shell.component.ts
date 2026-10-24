@@ -57,10 +57,12 @@ import { ConnectionBannerComponent } from './connection-banner.component';
       font: var(--mat-sys-title-large);
       margin-right: var(--space-4);
     }
+    /* The nav never scrolls: its height comes from its content. */
     .nav {
       display: flex;
-      min-width: 0;
-      overflow-x: auto;
+      flex: none;
+      align-items: center;
+      gap: var(--space-1);
     }
     .nav .active,
     .cart.active {
@@ -78,8 +80,8 @@ import { ConnectionBannerComponent } from './connection-banner.component';
       min-height: 0;
       overflow: auto;
     }
-    /* Narrow screens: the brand gives its space to the navigation. */
-    @media (max-width: 480px) {
+    /* Narrow screens: compact links and no brand, so all four links fit at 360 px. */
+    @media (max-width: 599.98px) {
       .toolbar {
         gap: 0;
         padding: 0 var(--space-1);
@@ -87,8 +89,16 @@ import { ConnectionBannerComponent } from './connection-banner.component';
       .brand {
         display: none;
       }
+      .nav {
+        gap: 0;
+      }
+      .nav a,
       .cart {
-        margin-right: var(--space-2);
+        min-width: 0;
+        padding: 0 var(--space-3);
+      }
+      .cart {
+        margin-right: var(--space-4);
       }
     }
   `,
