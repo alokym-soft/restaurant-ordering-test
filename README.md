@@ -10,9 +10,11 @@ npm 11.21 or newer (older npm 11 releases drop platform-specific build tool bina
 `package-lock.json`; update with `npm install -g npm@latest`).
 
 ```bash
-npm install
+npm ci
 npm start
 ```
+
+`npm ci` installs exactly what `package-lock.json` lists; `npm install` also works with a recent npm.
 
 - Web: http://localhost:4200
 - API: http://localhost:3000 (proxied from the web app under `/api`, including the WebSocket at `/api/ws`)
@@ -182,7 +184,7 @@ Deleting a category that still has items is refused with `409 CATEGORY_NOT_EMPTY
   until the menu store holds at least the version the server returned, so the event itself clears
   it. Mutations of the same row are sent one after another; different rows go in parallel.
 - **Live edits while a form is open.** The item form remembers the version it was loaded from.
-  While the form is untouched, newer versions arriving live are loaded silently. Once the user has
+  While the form is untouched, every change arriving live is loaded silently, also after a server restart, when versions start again from 1. Once the user has
   edited it, their edits are kept and a notice "This item was changed elsewhere" offers to load the
   latest version. Saving always sends the loaded version, so saving stale edits ends in a version
   conflict: a snackbar explains it and the form shows the latest version. If the item is deleted
@@ -205,7 +207,7 @@ Requests are validated by small hand-written parsers; every invalid field is rep
 ### Performance
 
 - Zoneless change detection, `OnPush` everywhere, signal inputs; a live update re-renders only the affected row.
-- Every route is lazy; `@defer` for non-critical parts.
+- Every route is lazy.
 - The snack bar and the CDK overlay it needs load on demand (prefetched right after startup). Otherwise
   the bundler would also pull CDK virtual scroll into the initial bundle, because both live in the same module.
 - CDK virtual scroll for the menu (about 3000 seeded items) with fixed row height; live updates never change row size.
@@ -262,7 +264,10 @@ Requests are validated by small hand-written parsers; every invalid field is rep
 - Setup has no inline price editing; prices are changed in the item form. Availability can be
   toggled inline.
 - Items cannot be deleted from Setup; making an item unavailable stops it from being ordered.
-- _TBD: extend during implementation._
+- Restarting the server resets data and the event sequence. Clients notice through `resync_required`
+  and reload their snapshots; cart lines for items that no longer exist are shown as removed.
+- No end-to-end tests. Reconnect, resume, resync and checkout retries are covered by unit tests; the
+  server's fault injection (`LATENCY_MS`, `FAILURE_RATE`, `WS_DROP_MS`) is there to try them by hand.
 
 ## Production readiness
 
@@ -283,4 +288,4 @@ What would be needed:
 - Images with responsive sizes and a CDN, HTTP caching for snapshots, service worker for offline shell.
 - CI pipeline with build, lint, tests and bundle-size checks.
 - Accessibility audit and internationalization.
-- _TBD: extend during implementation._
+- A pinned npm version (`packageManager` with Corepack), so every machine resolves the lockfile the same way.
