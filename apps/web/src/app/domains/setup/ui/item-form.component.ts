@@ -248,7 +248,8 @@ export class ItemFormComponent {
     const loaded = this.loadedFrom();
     if (!loaded || loaded.id !== item.id) {
       this.load(item);
-    } else if (item.version > loaded.version) {
+    } else if (item.version !== loaded.version) {
+      // Any difference counts: after a server restart (in-memory data) versions start again from 1.
       if (this.form.pristine) this.load(item);
       else this.newerAvailable.set(true);
     }
