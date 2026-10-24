@@ -2,7 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  type ElementRef,
+  ElementRef,
   afterNextRender,
   afterRenderEffect,
   inject,
@@ -22,15 +22,57 @@ export interface CategoryBarEntry {
 /** Fixed height of the bar; live chip updates never change it, so the list below does not jump. */
 export const CATEGORY_BAR_HEIGHT = 56;
 
+export interface ChipBox {
+  left: number;
+  width: number;
+}
+
 /**
- * Horizontally scrolling category chips. The native scrollbar is hidden; edge buttons appear only
- * when there is more content in that direction. Pure DOM behaviour, no store access.
+ * Scroll position for one arrow step. Forward: the first chip cut off at the right edge becomes the
+ * first fully visible chip. Back: the last chip cut off at the left edge becomes the last fully
+ * visible chip. Returns null when there is nothing hidden in that direction.
+ */
+export function stepTarget(
+  chips: readonly ChipBox[],
+  scrollLeft: number,
+  clientWidth: number,
+  padding: number,
+  direction: -1 | 1,
+): number | null {
+  const viewStart = scrollLeft + padding;
+  const viewEnd = scrollLeft + clientWidth - padding;
+  if (direction === 1) {
+    const next = chips.find((chip) => chip.left + chip.width > viewEnd + 1);
+    return next ? Math.max(0, next.left - padding) : null;
+  }
+  const previous = [...chips].reverse().find((chip) => chip.left < viewStart - 1);
+  return previous ? Math.max(0, previous.left + previous.width + padding - clientWidth) : null;
+}
+
+/**
+ * Horizontally scrolling category chips with a hidden native scrollbar. When the chips do not fit,
+ * arrow buttons get their own columns at both ends (they never cover chips) and step chip by chip;
+ * an arrow is disabled when there is nothing more in its direction. Pure DOM behaviour, no store.
  */
 @Component({
   selector: 'app-category-bar',
   imports: [MatButtonModule, MatIconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.overflowing]': 'overflowing()' },
   template: `
+    @if (overflowing()) {
+      <button
+        mat-icon-button
+        type="button"
+        class="arrow"
+        tabindex="-1"
+        aria-label="Previous categories"
+        [disabled]="!canScrollBack()"
+        (click)="step(-1)"
+      >
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+    }
     <nav
       #scroller
       class="scroller"
@@ -54,29 +96,38 @@ export const CATEGORY_BAR_HEIGHT = 56;
         </button>
       }
     </nav>
-    @if (canScrollBack()) {
-      <div class="edge edge--start">
-        <button mat-icon-button type="button" tabindex="-1" aria-label="Previous categories" (click)="page(-1)">
-          <mat-icon>chevron_left</mat-icon>
-        </button>
-      </div>
-    }
-    @if (canScrollForward()) {
-      <div class="edge edge--end">
-        <button mat-icon-button type="button" tabindex="-1" aria-label="More categories" (click)="page(1)">
-          <mat-icon>chevron_right</mat-icon>
-        </button>
-      </div>
+    @if (overflowing()) {
+      <button
+        mat-icon-button
+        type="button"
+        class="arrow"
+        tabindex="-1"
+        aria-label="More categories"
+        [disabled]="!canScrollForward()"
+        (click)="step(1)"
+      >
+        <mat-icon>chevron_right</mat-icon>
+      </button>
     }
   `,
   styles: `
     :host {
-      position: relative;
-      display: block;
+      display: flex;
+      align-items: center;
       flex: none;
       height: 56px;
+      box-sizing: border-box;
+    }
+    :host(.overflowing) {
+      padding: 0 var(--space-1);
+    }
+    .arrow {
+      flex: none;
     }
     .scroller {
+      position: relative;
+      flex: 1;
+      min-width: 0;
       box-sizing: border-box;
       height: 100%;
       display: flex;
@@ -89,6 +140,9 @@ export const CATEGORY_BAR_HEIGHT = 56;
       overscroll-behavior-x: contain;
       scrollbar-width: none;
       white-space: nowrap;
+    }
+    :host(.overflowing) .scroller {
+      padding: var(--space-2) var(--space-1);
     }
     .scroller::-webkit-scrollbar {
       display: none;
@@ -110,28 +164,6 @@ export const CATEGORY_BAR_HEIGHT = 56;
     .label {
       display: block;
     }
-    .edge {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      display: flex;
-      align-items: center;
-      width: 56px;
-      pointer-events: none;
-    }
-    .edge button {
-      pointer-events: auto;
-    }
-    .edge--start {
-      left: 0;
-      justify-content: flex-start;
-      background: linear-gradient(to right, var(--mat-sys-surface) 50%, transparent);
-    }
-    .edge--end {
-      right: 0;
-      justify-content: flex-end;
-      background: linear-gradient(to left, var(--mat-sys-surface) 50%, transparent);
-    }
   `,
 })
 export class CategoryBarComponent {
@@ -139,8 +171,10 @@ export class CategoryBarComponent {
   readonly activeId = input<string | null>(null);
   readonly selected = output<string>();
 
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly scroller = viewChild.required<ElementRef<HTMLElement>>('scroller');
   private readonly destroyRef = inject(DestroyRef);
+  protected readonly overflowing = signal(false);
   protected readonly canScrollBack = signal(false);
   protected readonly canScrollForward = signal(false);
 
@@ -148,7 +182,7 @@ export class CategoryBarComponent {
     afterNextRender(() => {
       if (typeof ResizeObserver === 'undefined') return;
       const observer = new ResizeObserver(() => this.updateEdges());
-      observer.observe(this.scroller().nativeElement);
+      observer.observe(this.host.nativeElement);
       this.destroyRef.onDestroy(() => observer.disconnect());
     });
     afterRenderEffect(() => {
@@ -167,6 +201,12 @@ export class CategoryBarComponent {
 
   protected updateEdges(): void {
     const el = this.scroller().nativeElement;
+    const chips = this.chipBoxes();
+    const last = chips.at(-1);
+    // Content width is measured from the chips, not the scroller, so showing the arrows
+    // (which narrows the scroller) cannot flip the result back and forth.
+    const contentWidth = last ? last.left + last.width + this.padding() : 0;
+    this.overflowing.set(contentWidth > this.host.nativeElement.clientWidth + 1);
     const max = el.scrollWidth - el.clientWidth;
     // 1 px tolerance for fractional scroll positions at non-integer zoom levels.
     this.canScrollBack.set(el.scrollLeft > 1);
@@ -186,9 +226,21 @@ export class CategoryBarComponent {
     if (event.target instanceof HTMLElement) this.reveal(event.target, false);
   }
 
-  protected page(direction: -1 | 1): void {
+  protected step(direction: -1 | 1): void {
     const el = this.scroller().nativeElement;
-    el.scrollBy({ left: direction * el.clientWidth * 0.8, behavior: this.behavior() });
+    const target = stepTarget(this.chipBoxes(), el.scrollLeft, el.clientWidth, this.padding(), direction);
+    if (target !== null) el.scrollTo({ left: target, behavior: this.behavior() });
+  }
+
+  private chipBoxes(): ChipBox[] {
+    return Array.from(this.scroller().nativeElement.querySelectorAll<HTMLElement>('.chip'), (chip) => ({
+      left: chip.offsetLeft,
+      width: chip.offsetWidth,
+    }));
+  }
+
+  private padding(): number {
+    return parseFloat(getComputedStyle(this.scroller().nativeElement).paddingLeft) || 0;
   }
 
   private reveal(chip: HTMLElement, animate: boolean): void {

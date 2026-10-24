@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { CategoryBarComponent } from './category-bar.component';
+import { CategoryBarComponent, stepTarget } from './category-bar.component';
 
 describe('CategoryBarComponent', () => {
   function setup(activeId: string | null = 'c2') {
@@ -43,5 +43,26 @@ describe('CategoryBarComponent', () => {
     scroller.dispatchEvent(event);
     expect(scroller.scrollLeft).toBe(120);
     expect(event.defaultPrevented).toBe(true);
+  });
+});
+
+describe('stepTarget', () => {
+  // Chips 100 px wide, 8 px apart, starting at padding 4.
+  const chips = Array.from({ length: 10 }, (_, i) => ({ left: 4 + i * 108, width: 100 }));
+
+  it('forward: the first chip cut off on the right becomes the first visible chip', () => {
+    // View 0..300 shows chips 0 and 1 fully; chip 2 (220..320) is cut off.
+    expect(stepTarget(chips, 0, 300, 4, 1)).toBe(216);
+  });
+
+  it('back: the last chip cut off on the left becomes the last visible chip', () => {
+    // View 216..516: chip 1 (112..212) is the last one hidden on the left.
+    expect(stepTarget(chips, 216, 300, 4, -1)).toBe(0);
+    expect(stepTarget(chips, 540, 300, 4, -1)).toBe(240);
+  });
+
+  it('returns null when nothing is hidden in that direction', () => {
+    expect(stepTarget(chips, 0, 300, 4, -1)).toBeNull();
+    expect(stepTarget(chips, 784, 300, 4, 1)).toBeNull();
   });
 });
