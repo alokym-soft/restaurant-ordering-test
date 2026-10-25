@@ -19,6 +19,7 @@ export const SetupPageActions = createActionGroup({
     'Item Created': props<{ request: CreateItemRequest }>(),
     'Item Updated': props<{ id: ItemId; request: UpdateItemRequest }>(),
     'Availability Toggled': props<{ id: ItemId; available: boolean; expectedVersion: number }>(),
+    'Item Delete Confirmed': props<{ id: ItemId }>(),
   },
 });
 

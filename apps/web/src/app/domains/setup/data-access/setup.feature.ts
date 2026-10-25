@@ -24,6 +24,7 @@ export function mutationKey(action: SetupMutation): MutationKey {
       return NEW_ITEM_KEY;
     case SetupPageActions.itemUpdated.type:
     case SetupPageActions.availabilityToggled.type:
+    case SetupPageActions.itemDeleteConfirmed.type:
       return itemKey(action.id);
   }
 }
@@ -48,6 +49,7 @@ export const setupFeature = createFeature({
       SetupPageActions.itemCreated,
       SetupPageActions.itemUpdated,
       SetupPageActions.availabilityToggled,
+      SetupPageActions.itemDeleteConfirmed,
       (state, action): SetupState => {
         const key = mutationKey(action);
         return { ...state, inFlight: { ...state.inFlight, [key]: true }, errors: without(state.errors, key) };

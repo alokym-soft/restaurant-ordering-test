@@ -36,4 +36,8 @@ export class SetupApi {
   updateItem(id: ItemId, request: UpdateItemRequest): Observable<MenuItem> {
     return this.http.patch<MenuItem>(API.setupItem(id), request);
   }
+
+  deleteItem(id: ItemId): Observable<void> {
+    return this.http.delete<void>(API.setupItem(id));
+  }
 }

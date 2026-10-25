@@ -35,6 +35,10 @@ function request(api: SetupApi, action: SetupMutation): Observable<Awaiting> {
       return api
         .updateItem(action.id, { available: action.available, expectedVersion: action.expectedVersion })
         .pipe(map((item) => ({ entity: 'item' as const, id: item.id, version: item.version })));
+    case SetupPageActions.itemDeleteConfirmed.type:
+      return api
+        .deleteItem(action.id)
+        .pipe(map(() => ({ entity: 'item' as const, id: action.id, removed: true as const })));
   }
 }
 
@@ -52,6 +56,7 @@ export const runMutations = createEffect(
         SetupPageActions.itemCreated,
         SetupPageActions.itemUpdated,
         SetupPageActions.availabilityToggled,
+        SetupPageActions.itemDeleteConfirmed,
       ),
       groupBy((action: SetupMutation) => mutationKey(action)),
       mergeMap((row$) =>
