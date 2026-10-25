@@ -21,7 +21,9 @@ export const loadOrders = createEffect(
     actions$.pipe(
       ofType(ConnectionActions.resyncRequired, OrdersPageActions.retryClicked),
       startWith(null),
-      switchMap(() => syncOrders(api.snapshot(), realtime.events$.pipe(filter(isOrderEvent)), scheduler)),
+      switchMap(() =>
+        syncOrders(api.snapshot(), realtime.events$.pipe(filter(isOrderEvent)), scheduler, realtime.streamStart$),
+      ),
     ),
   { functional: true },
 );

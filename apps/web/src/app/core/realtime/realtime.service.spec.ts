@@ -74,10 +74,10 @@ describe('RealtimeService', () => {
     return socket;
   };
 
-  const connect = (serverSeq = 10, heartbeatMs = 1_000): FakeSocket => {
+  const connect = (serverSeq = 10, heartbeatMs = 1_000, epoch = 'e1'): FakeSocket => {
     const socket = last();
     socket.open();
-    socket.receive({ type: 'welcome', serverSeq, heartbeatMs });
+    socket.receive({ type: 'welcome', serverSeq, heartbeatMs, epoch });
     return socket;
   };
 
@@ -114,9 +114,9 @@ describe('RealtimeService', () => {
     expect(service.state.status).toBe('connecting');
     const socket = last();
     socket.open();
-    expect(socket.sent).toEqual([{ type: 'hello', lastSeq: null }]);
+    expect(socket.sent).toEqual([{ type: 'hello', lastSeq: null, epoch: null }]);
 
-    socket.receive({ type: 'welcome', serverSeq: 42, heartbeatMs: 1_000 });
+    socket.receive({ type: 'welcome', serverSeq: 42, heartbeatMs: 1_000, epoch: 'e1' });
     expect(service.state).toEqual({ status: 'online', attempt: 0, lastSeq: 42 });
   });
 
@@ -141,7 +141,7 @@ describe('RealtimeService', () => {
     const next = last();
     expect(next).not.toBe(socket);
     next.open();
-    expect(next.sent[0]).toEqual({ type: 'hello', lastSeq: 13 });
+    expect(next.sent[0]).toEqual({ type: 'hello', lastSeq: 13, epoch: 'e1' });
   });
 
   it('reconnects with exponential backoff and full jitter, reset after welcome', () => {
@@ -257,6 +257,79 @@ describe('RealtimeService', () => {
     visibility = 'visible';
     document.dispatchEvent(new Event('visibilitychange'));
     expect(sockets).toHaveLength(2);
+  });
+
+  it('publishes where the continuous event stream starts', () => {
+    const starts: (number | null)[] = [];
+    service.streamStart$.subscribe((seq) => starts.push(seq));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    service.start();
+    const socket = connect(10); // first welcome: events after 10 will arrive
+    socket.receive({ type: 'event', event: event(11) });
+
+    socket.serverClose(1006); // resume: still continuous, no new start
+    vi.advanceTimersByTime(CONFIG.backoff.baseMs);
+    connect(11);
+    last().receive({ type: 'resync_required', oldestAvailableSeq: 30, serverSeq: 40 });
+    last().receive({ type: 'event', event: event(43) }); // gap after 40
+
+    expect(starts).toEqual([null, 10, 40, 42]);
+  });
+
+  it('remembers the epoch from welcome and sends it with the next hello', () => {
+    service.start();
+    const socket = connect(10, 1_000, 'run-1');
+    socket.serverClose(1006);
+    vi.advanceTimersByTime(CONFIG.backoff.baseMs);
+    last().open();
+    expect(last().sent[0]).toEqual({ type: 'hello', lastSeq: 10, epoch: 'run-1' });
+  });
+
+  it('requires a resync when the stream has a gap, and continues from the new event', () => {
+    const resyncs: number[] = [];
+    const received: number[] = [];
+    service.resyncRequired$.subscribe((r) => resyncs.push(r.serverSeq));
+    service.events$.subscribe((e) => received.push(e.seq));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    service.start();
+    const socket = connect(10);
+
+    socket.receive({ type: 'event', event: event(11) });
+    socket.receive({ type: 'event', event: event(13) }); // 12 is missing
+    socket.receive({ type: 'event', event: event(14) });
+
+    expect(resyncs).toEqual([13]);
+    expect(received).toEqual([11, 13, 14]);
+    expect(service.state.lastSeq).toBe(14);
+  });
+
+  it('requires a resync when the first live event does not follow welcome.serverSeq', () => {
+    const resyncs: number[] = [];
+    service.resyncRequired$.subscribe((r) => resyncs.push(r.serverSeq));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    service.start();
+    connect(10).receive({ type: 'event', event: event(12) });
+    expect(resyncs).toEqual([12]);
+  });
+
+  it('ignores events of unknown type without throwing and without a false gap', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const resyncs: number[] = [];
+    const received: string[] = [];
+    service.resyncRequired$.subscribe((r) => resyncs.push(r.serverSeq));
+    service.events$.subscribe((e) => received.push(e.type));
+    service.start();
+    const socket = connect(10);
+
+    expect(() =>
+      socket.receive(JSON.stringify({ type: 'event', event: { seq: 11, type: 'menu.future.thing', payload: {} } })),
+    ).not.toThrow();
+    socket.receive(JSON.stringify({ type: 'event', event: { seq: '12', type: 'menu.item.removed' } }));
+    socket.receive({ type: 'event', event: event(12) });
+
+    expect(received).toEqual(['menu.category.removed']);
+    expect(resyncs).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(2);
   });
 
   it('ignores malformed frames', () => {

@@ -1,4 +1,4 @@
-import { Subject, type Observable } from 'rxjs';
+import { BehaviorSubject, Subject, defer, type Observable } from 'rxjs';
 import { type SnapshotWithStream, snapshotWithStream } from './snapshot-with-stream';
 
 interface Snap {
@@ -62,6 +62,63 @@ describe('snapshotWithStream', () => {
     const { error } = record(snapshotWithStream(snapshot$, events$));
     snapshot$.error(new Error('boom'));
     expect(error()).toBeInstanceOf(Error);
+  });
+
+  describe('with a stream start', () => {
+    let streamStart$: BehaviorSubject<number | null>;
+    let requests: number;
+    let counted$: Observable<Snap>;
+
+    beforeEach(() => {
+      streamStart$ = new BehaviorSubject<number | null>(null);
+      requests = 0;
+      counted$ = defer(() => {
+        requests += 1;
+        return snapshot$;
+      });
+    });
+
+    it('reloads a snapshot older than the stream start instead of applying it', () => {
+      streamStart$.next(7); // welcome.serverSeq = 7 arrived first
+      const { out } = record(snapshotWithStream(counted$, events$, streamStart$));
+      events$.next({ seq: 8 });
+      snapshot$.next({ seq: 5, name: 'stale' }); // 6 and 7 were never received
+
+      expect(out).toEqual([]);
+      expect(requests).toBe(2);
+
+      snapshot$.next({ seq: 7, name: 'fresh' });
+      expect(out).toEqual([
+        { kind: 'snapshot', snapshot: { seq: 7, name: 'fresh' } },
+        { kind: 'events', events: [{ seq: 8 }] },
+      ]);
+    });
+
+    it('reloads when the socket connects after an older snapshot was applied (request started first)', () => {
+      const { out } = record(snapshotWithStream(counted$, events$, streamStart$));
+      snapshot$.next({ seq: 5, name: 'early' }); // socket not connected yet
+      expect(out).toEqual([{ kind: 'snapshot', snapshot: { seq: 5, name: 'early' } }]);
+
+      streamStart$.next(7); // welcome.serverSeq = 7: events 6..7 will never arrive
+      expect(requests).toBe(2);
+      events$.next({ seq: 8 });
+      expect(out).toHaveLength(1); // buffered until the reloaded snapshot
+
+      snapshot$.next({ seq: 7, name: 'reloaded' });
+      expect(out.slice(1)).toEqual([
+        { kind: 'snapshot', snapshot: { seq: 7, name: 'reloaded' } },
+        { kind: 'events', events: [{ seq: 8 }] },
+      ]);
+    });
+
+    it('keeps a snapshot that is at or after the stream start', () => {
+      streamStart$.next(7);
+      const { out } = record(snapshotWithStream(counted$, events$, streamStart$));
+      snapshot$.next({ seq: 7, name: 's' });
+      streamStart$.next(7);
+      expect(requests).toBe(1);
+      expect(out).toEqual([{ kind: 'snapshot', snapshot: { seq: 7, name: 's' } }]);
+    });
   });
 
   it('starts fresh on every subscription (resync)', () => {

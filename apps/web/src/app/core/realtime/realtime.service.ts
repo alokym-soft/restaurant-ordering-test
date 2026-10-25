@@ -1,6 +1,12 @@
 import { DOCUMENT, DestroyRef, Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Subject, distinctUntilChanged, type Observable, type Unsubscribable } from 'rxjs';
-import { WS_CLOSE, type ClientMessage, type ServerEvent, type ServerMessage } from '@restaurant/contracts';
+import {
+  WS_CLOSE,
+  type ClientMessage,
+  type ServerEvent,
+  type ServerEventType,
+  type ServerMessage,
+} from '@restaurant/contracts';
 import { fullJitterDelay } from './backoff';
 import {
   REALTIME_CONFIG,
@@ -51,6 +57,7 @@ export class RealtimeService {
   });
   private readonly eventsSubject = new Subject<ServerEvent>();
   private readonly resyncSubject = new Subject<ResyncRequired>();
+  private readonly streamStartSubject = new BehaviorSubject<number | null>(null);
 
   /** Connection state; emits on every change. */
   readonly state$: Observable<RealtimeState> = this.stateSubject.pipe(
@@ -62,6 +69,12 @@ export class RealtimeService {
   readonly events$: Observable<ServerEvent> = this.eventsSubject.asObservable();
   /** The server could not replay missed events; snapshots must be refetched. */
   readonly resyncRequired$: Observable<ResyncRequired> = this.resyncSubject.asObservable();
+  /**
+   * The `seq` after which `events$` is complete: every later event is (or will be) delivered.
+   * A snapshot older than this is missing events that will never arrive and must be reloaded.
+   * Null until the first `welcome`. Replays the current value to new subscribers.
+   */
+  readonly streamStart$: Observable<number | null> = this.streamStartSubject.pipe(distinctUntilChanged());
 
   private socket: RealtimeSocket | null = null;
   private subscription: Unsubscribable | null = null;
@@ -69,6 +82,8 @@ export class RealtimeService {
   private livenessTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatMs: number | null = null;
   private lastSeq: number | null = null;
+  /** Server epoch that `lastSeq` belongs to; sent back in `hello`. */
+  private epoch: string | null = null;
   private attempt = 0;
   private started = false;
   private hiddenSince: number | null = null;
@@ -125,7 +140,7 @@ export class RealtimeService {
       openObserver: {
         next: () => {
           if (this.socket !== socket) return;
-          this.send({ type: 'hello', lastSeq: this.lastSeq });
+          this.send({ type: 'hello', lastSeq: this.lastSeq, epoch: this.epoch });
           this.armLiveness();
         },
       },
@@ -156,24 +171,46 @@ export class RealtimeService {
     switch (message.type) {
       case 'welcome':
         this.heartbeatMs = message.heartbeatMs;
+        this.epoch = message.epoch;
         this.attempt = 0;
         // First connection: start resume tracking from the server's current position.
-        if (this.lastSeq === null) this.lastSeq = message.serverSeq;
+        if (this.lastSeq === null) {
+          this.lastSeq = message.serverSeq;
+          this.streamStartSubject.next(message.serverSeq);
+        }
         this.armLiveness();
         this.setState('online');
         break;
       case 'ping':
         this.send({ type: 'pong', ts: message.ts });
         break;
-      case 'event':
-        if (this.lastSeq !== null && message.event.seq <= this.lastSeq) return; // duplicate
-        this.lastSeq = message.event.seq;
-        this.eventsSubject.next(message.event);
+      case 'event': {
+        const { event } = message;
+        if (this.lastSeq !== null && event.seq <= this.lastSeq) return; // duplicate
+        // After welcome (and any replay) seq must be consecutive; anything else means lost events.
+        const gap = this.lastSeq !== null && event.seq !== this.lastSeq + 1;
+        this.lastSeq = event.seq;
+        if (gap) {
+          console.warn(`[realtime] gap in the event stream before seq ${event.seq}; resyncing`);
+          this.setState(this.state.status);
+          // Set before the resync so restarted snapshot flows already see the new start.
+          this.streamStartSubject.next(event.seq - 1);
+          this.resyncSubject.next({ serverSeq: event.seq, oldestAvailableSeq: event.seq });
+        }
+        if (!isKnownEventType(event.type)) {
+          // Keeps seq tracking intact (no false gap), but never hands an unknown shape to a reducer.
+          console.warn(`[realtime] ignored event of unknown type "${String(event.type)}"`);
+          this.setState(this.state.status);
+          return;
+        }
+        this.eventsSubject.next(event);
         this.setState(this.state.status);
         break;
+      }
       case 'resync_required':
         this.lastSeq = message.serverSeq;
         this.setState(this.state.status);
+        this.streamStartSubject.next(message.serverSeq);
         this.resyncSubject.next({
           serverSeq: message.serverSeq,
           oldestAvailableSeq: message.oldestAvailableSeq,
@@ -308,6 +345,20 @@ export class RealtimeService {
   }
 }
 
+/** Every event type of the contract; the `Record` type fails to compile if one is missing. */
+const KNOWN_EVENT_TYPES: Record<ServerEventType, true> = {
+  'menu.category.upserted': true,
+  'menu.category.removed': true,
+  'menu.item.upserted': true,
+  'menu.item.removed': true,
+  'order.created': true,
+  'order.status.changed': true,
+};
+
+function isKnownEventType(type: unknown): type is ServerEventType {
+  return typeof type === 'string' && Object.hasOwn(KNOWN_EVENT_TYPES, type);
+}
+
 /** Minimal structural check of an incoming frame; the payload contract is trusted. */
 export function parseServerMessage(raw: unknown): ServerMessage | null {
   let value: unknown = raw;
@@ -322,14 +373,16 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
   const message = value as Record<string, unknown>;
   switch (message['type']) {
     case 'welcome':
-      return typeof message['serverSeq'] === 'number' && typeof message['heartbeatMs'] === 'number'
+      return typeof message['serverSeq'] === 'number' &&
+        typeof message['heartbeatMs'] === 'number' &&
+        typeof message['epoch'] === 'string'
         ? (message as unknown as ServerMessage)
         : null;
     case 'ping':
       return typeof message['ts'] === 'number' ? (message as unknown as ServerMessage) : null;
     case 'event': {
       const event = message['event'] as Record<string, unknown> | null | undefined;
-      return typeof event === 'object' && event !== null && typeof event['seq'] === 'number'
+      return typeof event === 'object' && event !== null && Number.isSafeInteger(event['seq'])
         ? (message as unknown as ServerMessage)
         : null;
     }
