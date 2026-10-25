@@ -1,6 +1,12 @@
 import { DOCUMENT, DestroyRef, Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Subject, distinctUntilChanged, type Observable, type Unsubscribable } from 'rxjs';
-import { WS_CLOSE, type ClientMessage, type ServerEvent, type ServerMessage } from '@restaurant/contracts';
+import {
+  WS_CLOSE,
+  type ClientMessage,
+  type ServerEvent,
+  type ServerEventType,
+  type ServerMessage,
+} from '@restaurant/contracts';
 import { fullJitterDelay } from './backoff';
 import {
   REALTIME_CONFIG,
@@ -168,12 +174,27 @@ export class RealtimeService {
       case 'ping':
         this.send({ type: 'pong', ts: message.ts });
         break;
-      case 'event':
-        if (this.lastSeq !== null && message.event.seq <= this.lastSeq) return; // duplicate
-        this.lastSeq = message.event.seq;
-        this.eventsSubject.next(message.event);
+      case 'event': {
+        const { event } = message;
+        if (this.lastSeq !== null && event.seq <= this.lastSeq) return; // duplicate
+        // After welcome (and any replay) seq must be consecutive; anything else means lost events.
+        const gap = this.lastSeq !== null && event.seq !== this.lastSeq + 1;
+        this.lastSeq = event.seq;
+        if (gap) {
+          console.warn(`[realtime] gap in the event stream before seq ${event.seq}; resyncing`);
+          this.setState(this.state.status);
+          this.resyncSubject.next({ serverSeq: event.seq, oldestAvailableSeq: event.seq });
+        }
+        if (!isKnownEventType(event.type)) {
+          // Keeps seq tracking intact (no false gap), but never hands an unknown shape to a reducer.
+          console.warn(`[realtime] ignored event of unknown type "${String(event.type)}"`);
+          this.setState(this.state.status);
+          return;
+        }
+        this.eventsSubject.next(event);
         this.setState(this.state.status);
         break;
+      }
       case 'resync_required':
         this.lastSeq = message.serverSeq;
         this.setState(this.state.status);
@@ -311,6 +332,20 @@ export class RealtimeService {
   }
 }
 
+/** Every event type of the contract; the `Record` type fails to compile if one is missing. */
+const KNOWN_EVENT_TYPES: Record<ServerEventType, true> = {
+  'menu.category.upserted': true,
+  'menu.category.removed': true,
+  'menu.item.upserted': true,
+  'menu.item.removed': true,
+  'order.created': true,
+  'order.status.changed': true,
+};
+
+function isKnownEventType(type: unknown): type is ServerEventType {
+  return typeof type === 'string' && Object.hasOwn(KNOWN_EVENT_TYPES, type);
+}
+
 /** Minimal structural check of an incoming frame; the payload contract is trusted. */
 export function parseServerMessage(raw: unknown): ServerMessage | null {
   let value: unknown = raw;
@@ -334,7 +369,7 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
       return typeof message['ts'] === 'number' ? (message as unknown as ServerMessage) : null;
     case 'event': {
       const event = message['event'] as Record<string, unknown> | null | undefined;
-      return typeof event === 'object' && event !== null && typeof event['seq'] === 'number'
+      return typeof event === 'object' && event !== null && Number.isSafeInteger(event['seq'])
         ? (message as unknown as ServerMessage)
         : null;
     }

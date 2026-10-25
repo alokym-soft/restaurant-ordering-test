@@ -259,6 +259,62 @@ describe('RealtimeService', () => {
     expect(sockets).toHaveLength(2);
   });
 
+  it('remembers the epoch from welcome and sends it with the next hello', () => {
+    service.start();
+    const socket = connect(10, 1_000, 'run-1');
+    socket.serverClose(1006);
+    vi.advanceTimersByTime(CONFIG.backoff.baseMs);
+    last().open();
+    expect(last().sent[0]).toEqual({ type: 'hello', lastSeq: 10, epoch: 'run-1' });
+  });
+
+  it('requires a resync when the stream has a gap, and continues from the new event', () => {
+    const resyncs: number[] = [];
+    const received: number[] = [];
+    service.resyncRequired$.subscribe((r) => resyncs.push(r.serverSeq));
+    service.events$.subscribe((e) => received.push(e.seq));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    service.start();
+    const socket = connect(10);
+
+    socket.receive({ type: 'event', event: event(11) });
+    socket.receive({ type: 'event', event: event(13) }); // 12 is missing
+    socket.receive({ type: 'event', event: event(14) });
+
+    expect(resyncs).toEqual([13]);
+    expect(received).toEqual([11, 13, 14]);
+    expect(service.state.lastSeq).toBe(14);
+  });
+
+  it('requires a resync when the first live event does not follow welcome.serverSeq', () => {
+    const resyncs: number[] = [];
+    service.resyncRequired$.subscribe((r) => resyncs.push(r.serverSeq));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    service.start();
+    connect(10).receive({ type: 'event', event: event(12) });
+    expect(resyncs).toEqual([12]);
+  });
+
+  it('ignores events of unknown type without throwing and without a false gap', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const resyncs: number[] = [];
+    const received: string[] = [];
+    service.resyncRequired$.subscribe((r) => resyncs.push(r.serverSeq));
+    service.events$.subscribe((e) => received.push(e.type));
+    service.start();
+    const socket = connect(10);
+
+    expect(() =>
+      socket.receive(JSON.stringify({ type: 'event', event: { seq: 11, type: 'menu.future.thing', payload: {} } })),
+    ).not.toThrow();
+    socket.receive(JSON.stringify({ type: 'event', event: { seq: '12', type: 'menu.item.removed' } }));
+    socket.receive({ type: 'event', event: event(12) });
+
+    expect(received).toEqual(['menu.category.removed']);
+    expect(resyncs).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
   it('ignores malformed frames', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     service.start();
