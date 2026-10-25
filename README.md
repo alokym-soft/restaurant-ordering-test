@@ -224,6 +224,14 @@ Requests are validated by small hand-written parsers; every invalid field is rep
 - Skeletons match real content dimensions to avoid layout shift.
 - Unavailable items stay in place, disabled, instead of disappearing under the cursor.
 
+**Measured.** Production build (`npm run build`): initial bundle 482.22 kB raw, 125.94 kB estimated
+transfer. Lighthouse 12.8 in mobile mode with simulated throttling (150 ms RTT, 1.6 Mbps, 4× CPU
+slowdown) on `/menu`, with the built files served gzipped from localhost and the API proxied to the
+built server, median of 3 runs: Performance 73, LCP 5.9 s, CLS 0.00, TBT 180 ms (FCP 2.4 s).
+LCP waits for the menu snapshot: `/api/menu` with the 3000 seeded items is 568 kB, sent
+uncompressed because the server has no response compression. The Material Symbols icon font
+(324 kB, Google Fonts CDN) is the next largest transfer.
+
 ### Reliability
 
 - All errors follow one `ApiError` shape with a user-safe `message`.
