@@ -59,6 +59,21 @@ describe('POST /api/orders', () => {
     expect(events('order.created')).toHaveLength(1);
   });
 
+  it('creates exactly one order for concurrent retries with the same key and body', async () => {
+    // Latency makes both requests wait in the hooks and reach the handler interleaved.
+    await app.close();
+    app = await makeApp({ LATENCY_MS: '20' });
+    const key = randomUUID();
+    const body: CreateOrderRequest = { lines: [lineFor(fixedItem(app))], discount: 0 };
+
+    const [a, b] = await Promise.all([post(body, key), post(body, key)]);
+
+    expect([a.statusCode, b.statusCode].sort()).toEqual([200, 201]);
+    expect(a.json().id).toBe(b.json().id);
+    expect(app.services.orders.orders.size).toBe(1);
+    expect(events('order.created')).toHaveLength(1);
+  });
+
   it('never creates an order for a known key whose order is missing', async () => {
     const key = randomUUID();
     const body: CreateOrderRequest = { lines: [lineFor(fixedItem(app))], discount: 0 };
