@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Older npm 11 releases drop platform-specific build binaries from the lockfile.
+      - name: Install npm 11
+        run: npm install -g npm@11
+
+      - name: Versions
+        run: |
+          node -v
+          npm -v
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
