@@ -59,6 +59,20 @@ describe('POST /api/orders', () => {
     expect(events('order.created')).toHaveLength(1);
   });
 
+  it('never creates an order for a known key whose order is missing', async () => {
+    const key = randomUUID();
+    const body: CreateOrderRequest = { lines: [lineFor(fixedItem(app))], discount: 0 };
+    const first = await post(body, key);
+    app.services.orders.orders.delete(first.json().id); // simulate a lost order record
+
+    const retry = await post(body, key);
+
+    expect(retry.statusCode).toBe(500);
+    expect(retry.json()).toMatchObject({ code: 'INTERNAL' });
+    expect(app.services.orders.orders.size).toBe(0);
+    expect(events('order.created')).toHaveLength(1);
+  });
+
   it('rejects the same key with a different body', async () => {
     const key = randomUUID();
     const item = fixedItem(app);

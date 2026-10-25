@@ -10,7 +10,7 @@ import {
   type Order,
   type OrderLine,
 } from '@restaurant/contracts';
-import { AppError, idempotencyMismatch, validationFailed } from '../http/errors.js';
+import { AppError, idempotencyMismatch, internalError, validationFailed } from '../http/errors.js';
 import { parseCreateOrder } from '../http/validation.js';
 import type { MenuStore } from '../store/menu-store.js';
 
@@ -64,11 +64,16 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
     // The parser rebuilds the body with a fixed key order, so this is a canonical form.
     const fingerprint = JSON.stringify(body);
 
+    // Everything from the key lookup to `recordOrder` below is synchronous: no `await` may be added
+    // in between, or two concurrent retries with the same key could both create an order.
     const previous = orders.idempotency.get(key);
     if (previous) {
       if (previous.fingerprint !== fingerprint) throw idempotencyMismatch();
       const existing = orders.get(previous.orderId);
       if (existing) return reply.code(200).send(existing);
+      // A known key must never create a second order, even if its order record is gone.
+      request.log.error({ orderId: previous.orderId }, 'idempotency key refers to a missing order');
+      throw internalError();
     }
 
     const details = findMenuChanges(menu, body);
@@ -107,8 +112,7 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
       version: 1,
     };
 
-    orders.save(order);
-    orders.idempotency.set(key, { fingerprint, orderId: order.id });
+    orders.recordOrder(key, fingerprint, order);
     bus.publish({ type: 'order.created', payload: order });
     return reply.code(201).send(order);
   });
