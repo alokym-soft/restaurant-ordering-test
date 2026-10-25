@@ -259,6 +259,23 @@ describe('RealtimeService', () => {
     expect(sockets).toHaveLength(2);
   });
 
+  it('publishes where the continuous event stream starts', () => {
+    const starts: (number | null)[] = [];
+    service.streamStart$.subscribe((seq) => starts.push(seq));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    service.start();
+    const socket = connect(10); // first welcome: events after 10 will arrive
+    socket.receive({ type: 'event', event: event(11) });
+
+    socket.serverClose(1006); // resume: still continuous, no new start
+    vi.advanceTimersByTime(CONFIG.backoff.baseMs);
+    connect(11);
+    last().receive({ type: 'resync_required', oldestAvailableSeq: 30, serverSeq: 40 });
+    last().receive({ type: 'event', event: event(43) }); // gap after 40
+
+    expect(starts).toEqual([null, 10, 40, 42]);
+  });
+
   it('remembers the epoch from welcome and sends it with the next hello', () => {
     service.start();
     const socket = connect(10, 1_000, 'run-1');

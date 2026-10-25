@@ -57,6 +57,7 @@ export class RealtimeService {
   });
   private readonly eventsSubject = new Subject<ServerEvent>();
   private readonly resyncSubject = new Subject<ResyncRequired>();
+  private readonly streamStartSubject = new BehaviorSubject<number | null>(null);
 
   /** Connection state; emits on every change. */
   readonly state$: Observable<RealtimeState> = this.stateSubject.pipe(
@@ -68,6 +69,12 @@ export class RealtimeService {
   readonly events$: Observable<ServerEvent> = this.eventsSubject.asObservable();
   /** The server could not replay missed events; snapshots must be refetched. */
   readonly resyncRequired$: Observable<ResyncRequired> = this.resyncSubject.asObservable();
+  /**
+   * The `seq` after which `events$` is complete: every later event is (or will be) delivered.
+   * A snapshot older than this is missing events that will never arrive and must be reloaded.
+   * Null until the first `welcome`. Replays the current value to new subscribers.
+   */
+  readonly streamStart$: Observable<number | null> = this.streamStartSubject.pipe(distinctUntilChanged());
 
   private socket: RealtimeSocket | null = null;
   private subscription: Unsubscribable | null = null;
@@ -167,7 +174,10 @@ export class RealtimeService {
         this.epoch = message.epoch;
         this.attempt = 0;
         // First connection: start resume tracking from the server's current position.
-        if (this.lastSeq === null) this.lastSeq = message.serverSeq;
+        if (this.lastSeq === null) {
+          this.lastSeq = message.serverSeq;
+          this.streamStartSubject.next(message.serverSeq);
+        }
         this.armLiveness();
         this.setState('online');
         break;
@@ -183,6 +193,8 @@ export class RealtimeService {
         if (gap) {
           console.warn(`[realtime] gap in the event stream before seq ${event.seq}; resyncing`);
           this.setState(this.state.status);
+          // Set before the resync so restarted snapshot flows already see the new start.
+          this.streamStartSubject.next(event.seq - 1);
           this.resyncSubject.next({ serverSeq: event.seq, oldestAvailableSeq: event.seq });
         }
         if (!isKnownEventType(event.type)) {
@@ -198,6 +210,7 @@ export class RealtimeService {
       case 'resync_required':
         this.lastSeq = message.serverSeq;
         this.setState(this.state.status);
+        this.streamStartSubject.next(message.serverSeq);
         this.resyncSubject.next({
           serverSeq: message.serverSeq,
           oldestAvailableSeq: message.oldestAvailableSeq,

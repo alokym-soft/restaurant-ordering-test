@@ -1,4 +1,4 @@
-import { Subject } from 'rxjs';
+import { BehaviorSubject, Subject, defer } from 'rxjs';
 import type { Action } from '@ngrx/store';
 import type { MenuEvent, MenuSnapshot } from '@restaurant/contracts';
 import { ManualFrameScheduler } from '@shared/util/rx/testing/manual-frame-scheduler';
@@ -9,18 +9,43 @@ import { fixedItem, itemUpserted, snapshot } from './testing/menu-fixtures';
 describe('syncMenu', () => {
   let snapshot$: Subject<MenuSnapshot>;
   let events$: Subject<MenuEvent>;
+  let streamStart$: BehaviorSubject<number | null>;
+  let requests: number;
   let scheduler: ManualFrameScheduler;
   let actions: Action[];
 
   beforeEach(() => {
     snapshot$ = new Subject();
     events$ = new Subject();
+    streamStart$ = new BehaviorSubject<number | null>(null);
+    requests = 0;
     scheduler = new ManualFrameScheduler();
     actions = [];
-    syncMenu(snapshot$, events$, scheduler).subscribe((action) => actions.push(action));
+    const request$ = defer(() => {
+      requests += 1;
+      return snapshot$;
+    });
+    syncMenu(request$, events$, scheduler, streamStart$).subscribe((action) => actions.push(action));
   });
 
   const types = () => actions.map((action) => action.type);
+
+  it('reloads a snapshot older than welcome.serverSeq of the connection that delivers its events', () => {
+    // The snapshot request started before the socket connected.
+    snapshot$.next(snapshot(5, [], []));
+    streamStart$.next(7); // events 6 and 7 happened before the socket subscribed
+    expect(requests).toBe(2);
+
+    events$.next(itemUpserted(8, fixedItem('live')));
+    snapshot$.next(snapshot(7, [], []));
+    scheduler.frame();
+
+    const loaded = actions.filter((action) => action.type === MenuApiActions.snapshotLoaded.type);
+    expect(loaded.map((action) => (action as ReturnType<typeof MenuApiActions.snapshotLoaded>).snapshot.seq)).toEqual([
+      5, 7,
+    ]);
+    expect(actions.at(-1)).toEqual(MenuStreamActions.eventsApplied({ events: [itemUpserted(8, fixedItem('live'))] }));
+  });
 
   it('requests, then buffers events until the snapshot and drops the ones it already contains', () => {
     expect(types()).toEqual([MenuApiActions.snapshotRequested.type]);

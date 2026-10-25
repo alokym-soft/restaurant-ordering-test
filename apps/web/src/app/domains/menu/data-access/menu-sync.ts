@@ -20,8 +20,9 @@ export function syncMenu(
   snapshot$: Observable<MenuSnapshot>,
   events$: Observable<MenuEvent>,
   scheduler: SchedulerLike,
+  streamStart$: Observable<number | null>,
 ): Observable<Action> {
-  const sync$ = snapshotWithStream(snapshot$, events$).pipe(
+  const sync$ = snapshotWithStream(snapshot$, events$, streamStart$).pipe(
     connect((shared$) =>
       merge(
         shared$.pipe(

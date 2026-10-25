@@ -1,4 +1,4 @@
-import { Subject } from 'rxjs';
+import { BehaviorSubject, Subject, defer } from 'rxjs';
 import { Actions } from '@ngrx/effects';
 import type { Action } from '@ngrx/store';
 import type { Order, OrderEvent, OrdersSnapshot, ServerEvent } from '@restaurant/contracts';
@@ -36,7 +36,9 @@ describe('syncOrders', () => {
     const events$ = new Subject<OrderEvent>();
     const scheduler = new ManualFrameScheduler();
     const actions: Action[] = [];
-    syncOrders(snapshot$, events$, scheduler).subscribe((action) => actions.push(action));
+    syncOrders(snapshot$, events$, scheduler, new BehaviorSubject<number | null>(5)).subscribe((action) =>
+      actions.push(action),
+    );
 
     events$.next(statusChanged(4, 'o1'));
     events$.next(statusChanged(6, 'o1'));
@@ -48,6 +50,30 @@ describe('syncOrders', () => {
       OrdersApiActions.snapshotRequested(),
       OrdersApiActions.snapshotLoaded({ snapshot: snapshot(5, [order('o1'), order('o2')]) }),
       OrdersStreamActions.eventsApplied({ events: [statusChanged(6, 'o1'), statusChanged(7, 'o2')] }),
+    ]);
+  });
+
+  it('reloads a snapshot older than welcome.serverSeq of the connection that delivers its events', () => {
+    const snapshot$ = new Subject<OrdersSnapshot>();
+    let requests = 0;
+    const request$ = defer(() => {
+      requests += 1;
+      return snapshot$;
+    });
+    const events$ = new Subject<OrderEvent>();
+    const streamStart$ = new BehaviorSubject<number | null>(null);
+    const scheduler = new ManualFrameScheduler();
+    const actions: Action[] = [];
+    syncOrders(request$, events$, scheduler, streamStart$).subscribe((action) => actions.push(action));
+
+    streamStart$.next(9); // welcome.serverSeq = 9 arrived before the snapshot response
+    snapshot$.next(snapshot(8, [order('o1')])); // event 9 was never received: reload
+    expect(requests).toBe(2);
+
+    snapshot$.next(snapshot(9, [order('o1'), order('o2')]));
+    expect(actions).toEqual([
+      OrdersApiActions.snapshotRequested(),
+      OrdersApiActions.snapshotLoaded({ snapshot: snapshot(9, [order('o1'), order('o2')]) }),
     ]);
   });
 });
@@ -64,7 +90,7 @@ describe('loadOrders', () => {
         return next;
       },
     } as unknown as OrdersListApi;
-    const realtime = { events$ } as unknown as RealtimeService;
+    const realtime = { events$, streamStart$: new BehaviorSubject<number | null>(null) } as unknown as RealtimeService;
     const scheduler = new ManualFrameScheduler();
     const out: Action[] = [];
     loadOrders(new Actions(actions$), api, realtime, scheduler).subscribe((action) => out.push(action));

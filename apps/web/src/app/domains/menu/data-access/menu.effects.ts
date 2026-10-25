@@ -21,7 +21,9 @@ export const loadMenu = createEffect(
     actions$.pipe(
       ofType(ConnectionActions.resyncRequired, MenuPageActions.retryClicked),
       startWith(null),
-      switchMap(() => syncMenu(api.snapshot(), realtime.events$.pipe(filter(isMenuEvent)), scheduler)),
+      switchMap(() =>
+        syncMenu(api.snapshot(), realtime.events$.pipe(filter(isMenuEvent)), scheduler, realtime.streamStart$),
+      ),
     ),
   { functional: true },
 );
