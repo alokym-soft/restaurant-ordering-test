@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import websocket from '@fastify/websocket';
 import type { ServerConfig } from './config.js';
@@ -21,12 +22,16 @@ export interface Services {
   bus: EventBus;
   menu: MenuStore;
   orders: OrdersStore;
+  /** Random id of this server run; `seq` values are only comparable within one epoch. */
+  epoch: string;
 }
 
 export interface BuildOptions {
   /** Initial menu; defaults to the deterministic demo seed. */
   seed?: SeedData;
   logger?: boolean;
+  /** Fixed epoch for tests; defaults to a random UUID. */
+  epoch?: string;
   /** Random sources in [0, 1); default `Math.random`. Injectable for deterministic tests. */
   random?: {
     faults?: () => number;
@@ -55,7 +60,7 @@ export async function buildApp(config: ServerConfig, options: BuildOptions = {})
   app.addHook('onClose', async () => scheduler.stop());
 
   app.decorate('config', config);
-  app.decorate('services', { bus, menu, orders } satisfies Services);
+  app.decorate('services', { bus, menu, orders, epoch: options.epoch ?? randomUUID() } satisfies Services);
 
   registerErrorHandling(app);
   registerFaultInjection(app, {

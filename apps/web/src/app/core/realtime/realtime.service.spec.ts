@@ -74,10 +74,10 @@ describe('RealtimeService', () => {
     return socket;
   };
 
-  const connect = (serverSeq = 10, heartbeatMs = 1_000): FakeSocket => {
+  const connect = (serverSeq = 10, heartbeatMs = 1_000, epoch = 'e1'): FakeSocket => {
     const socket = last();
     socket.open();
-    socket.receive({ type: 'welcome', serverSeq, heartbeatMs });
+    socket.receive({ type: 'welcome', serverSeq, heartbeatMs, epoch });
     return socket;
   };
 
@@ -114,9 +114,9 @@ describe('RealtimeService', () => {
     expect(service.state.status).toBe('connecting');
     const socket = last();
     socket.open();
-    expect(socket.sent).toEqual([{ type: 'hello', lastSeq: null }]);
+    expect(socket.sent).toEqual([{ type: 'hello', lastSeq: null, epoch: null }]);
 
-    socket.receive({ type: 'welcome', serverSeq: 42, heartbeatMs: 1_000 });
+    socket.receive({ type: 'welcome', serverSeq: 42, heartbeatMs: 1_000, epoch: 'e1' });
     expect(service.state).toEqual({ status: 'online', attempt: 0, lastSeq: 42 });
   });
 
@@ -141,7 +141,7 @@ describe('RealtimeService', () => {
     const next = last();
     expect(next).not.toBe(socket);
     next.open();
-    expect(next.sent[0]).toEqual({ type: 'hello', lastSeq: 13 });
+    expect(next.sent[0]).toEqual({ type: 'hello', lastSeq: 13, epoch: 'e1' });
   });
 
   it('reconnects with exponential backoff and full jitter, reset after welcome', () => {

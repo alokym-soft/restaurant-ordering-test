@@ -69,6 +69,8 @@ export class RealtimeService {
   private livenessTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatMs: number | null = null;
   private lastSeq: number | null = null;
+  /** Server epoch that `lastSeq` belongs to; sent back in `hello`. */
+  private epoch: string | null = null;
   private attempt = 0;
   private started = false;
   private hiddenSince: number | null = null;
@@ -125,7 +127,7 @@ export class RealtimeService {
       openObserver: {
         next: () => {
           if (this.socket !== socket) return;
-          this.send({ type: 'hello', lastSeq: this.lastSeq });
+          this.send({ type: 'hello', lastSeq: this.lastSeq, epoch: this.epoch });
           this.armLiveness();
         },
       },
@@ -156,6 +158,7 @@ export class RealtimeService {
     switch (message.type) {
       case 'welcome':
         this.heartbeatMs = message.heartbeatMs;
+        this.epoch = message.epoch;
         this.attempt = 0;
         // First connection: start resume tracking from the server's current position.
         if (this.lastSeq === null) this.lastSeq = message.serverSeq;
@@ -322,7 +325,9 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
   const message = value as Record<string, unknown>;
   switch (message['type']) {
     case 'welcome':
-      return typeof message['serverSeq'] === 'number' && typeof message['heartbeatMs'] === 'number'
+      return typeof message['serverSeq'] === 'number' &&
+        typeof message['heartbeatMs'] === 'number' &&
+        typeof message['epoch'] === 'string'
         ? (message as unknown as ServerMessage)
         : null;
     case 'ping':

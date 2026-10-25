@@ -21,8 +21,12 @@ function parseClientMessage(raw: string): ClientMessage | null {
   const message = value as Record<string, unknown>;
   if (message['type'] === 'hello') {
     const lastSeq = message['lastSeq'];
-    const valid = lastSeq === null || (Number.isSafeInteger(lastSeq) && (lastSeq as number) >= 0);
-    return valid ? { type: 'hello', lastSeq: lastSeq as number | null } : null;
+    const epoch = message['epoch'];
+    const validSeq = lastSeq === null || (Number.isSafeInteger(lastSeq) && (lastSeq as number) >= 0);
+    const validEpoch = epoch === null || (typeof epoch === 'string' && epoch.length > 0 && epoch.length <= 100);
+    return validSeq && validEpoch
+      ? { type: 'hello', lastSeq: lastSeq as number | null, epoch: epoch as string | null }
+      : null;
   }
   if (message['type'] === 'pong' && typeof message['ts'] === 'number') {
     return { type: 'pong', ts: message['ts'] };
@@ -35,7 +39,7 @@ function parseClientMessage(raw: string): ClientMessage | null {
  * `hello` → `welcome` → replay or `resync_required` → live events, with ping/pong heartbeat.
  */
 export async function realtimeGateway(app: FastifyInstance): Promise<void> {
-  const { bus } = app.services;
+  const { bus, epoch } = app.services;
   const { heartbeatMs, wsDropMs } = app.config;
   const sockets = new Set<WebSocket>();
 
@@ -81,7 +85,7 @@ export async function realtimeGateway(app: FastifyInstance): Promise<void> {
 
     const startSession = (lastSeq: number | null): void => {
       clearTimeout(helloTimer);
-      send({ type: 'welcome', serverSeq: bus.currentSeq, heartbeatMs });
+      send({ type: 'welcome', serverSeq: bus.currentSeq, heartbeatMs, epoch });
 
       // Replay and subscription happen in the same tick: no event can slip in between.
       if (lastSeq !== null) {

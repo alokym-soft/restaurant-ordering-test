@@ -69,10 +69,10 @@ describe('WebSocket gateway', () => {
 
   it('answers hello with welcome, then streams live events', async () => {
     const client = await open(await start({ HEARTBEAT_MS: '60000' }));
-    client.socket.send(JSON.stringify({ type: 'hello', lastSeq: null }));
+    client.socket.send(JSON.stringify({ type: 'hello', lastSeq: null, epoch: null }));
 
     const [welcome] = await client.take(1);
-    expect(welcome).toEqual({ type: 'welcome', serverSeq: 0, heartbeatMs: 60000 });
+    expect(welcome).toEqual({ type: 'welcome', serverSeq: 0, heartbeatMs: 60000, epoch: app?.services.epoch });
 
     publish('a');
     const [event] = await client.take(1);
@@ -84,7 +84,7 @@ describe('WebSocket gateway', () => {
     for (const id of ['a', 'b', 'c']) publish(id);
 
     const client = await open(url);
-    client.socket.send(JSON.stringify({ type: 'hello', lastSeq: 1 }));
+    client.socket.send(JSON.stringify({ type: 'hello', lastSeq: 1, epoch: app?.services.epoch }));
     const replayed = await client.take(3);
     publish('d');
     const messages = [...replayed, ...(await client.take(1))];
@@ -98,7 +98,7 @@ describe('WebSocket gateway', () => {
     for (const id of ['a', 'b', 'c', 'd']) publish(id);
 
     const client = await open(url);
-    client.socket.send(JSON.stringify({ type: 'hello', lastSeq: 0 }));
+    client.socket.send(JSON.stringify({ type: 'hello', lastSeq: 0, epoch: app?.services.epoch }));
 
     const [, resync] = await client.take(2);
     expect(resync).toEqual({ type: 'resync_required', oldestAvailableSeq: 3, serverSeq: 4 });
@@ -112,7 +112,7 @@ describe('WebSocket gateway', () => {
 
   it('closes with 4408 when the client stops answering pings', async () => {
     const client = await open(await start({ HEARTBEAT_MS: '30' }));
-    client.socket.send(JSON.stringify({ type: 'hello', lastSeq: null }));
+    client.socket.send(JSON.stringify({ type: 'hello', lastSeq: null, epoch: null }));
     expect((await client.closed).code).toBe(WS_CLOSE.HEARTBEAT_TIMEOUT);
   });
 
@@ -122,7 +122,7 @@ describe('WebSocket gateway', () => {
       const message = JSON.parse(data.toString()) as ServerMessage;
       if (message.type === 'ping') client.socket.send(JSON.stringify({ type: 'pong', ts: message.ts }));
     });
-    client.socket.send(JSON.stringify({ type: 'hello', lastSeq: null }));
+    client.socket.send(JSON.stringify({ type: 'hello', lastSeq: null, epoch: null }));
 
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(client.socket.readyState).toBe(WebSocket.OPEN);
