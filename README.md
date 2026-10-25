@@ -3,31 +3,103 @@
 A prototype of a restaurant ordering web app: menu configuration (Setup), ordering (Menu)
 and a minimal server with real-time updates. Built with Angular, NgRx and Fastify.
 
-## How to run
+## Getting started
 
-Requirements: Node.js 22 LTS (22.22.3 or newer, required by Angular CLI 22) or Node.js 24 LTS,
-npm 11.21 or newer (older npm 11 releases drop platform-specific build tool binaries from
-`package-lock.json`; update with `npm install -g npm@latest`).
+### Quick start
 
 ```bash
 npm ci
-npm start
+npm start        # then open http://localhost:4200
+```
+
+### Step by step
+
+**1. Prerequisites.** Node.js 22.22.3 or newer (22 LTS or 24 LTS) and npm 11.21 or newer. Check:
+
+```bash
+node -v   # v22.22.3 or newer
+npm -v    # 11.21.0 or newer
+```
+
+Older npm 11 releases drop platform-specific build tool binaries from `package-lock.json`.
+Update npm with `npm install -g npm@latest`. To switch Node versions (the repository has an `.nvmrc`):
+
+- nvm (macOS, Linux): `nvm install && nvm use`
+- nvm-windows: `nvm install 22 && nvm use 22`
+- fnm (any OS): `fnm install && fnm use`
+
+**2. Get the code and install.**
+
+```bash
+git clone <repository-url> restaurant
+cd restaurant
+npm ci
 ```
 
 `npm ci` installs exactly what `package-lock.json` lists; `npm install` also works with a recent npm.
 
+**3. Start.**
+
+```bash
+npm start
+```
+
+This runs the server and the web app together. It is ready when you see both:
+
+```
+[server] {"level":30,...,"msg":"Server listening at http://127.0.0.1:3000"}
+[web]    Application bundle generation complete.
+[web]      ➜  Local:   http://localhost:4200/
+```
+
 - Web: http://localhost:4200
 - API: http://localhost:3000 (proxied from the web app under `/api`, including the WebSocket at `/api/ws`)
 
-Other commands:
+**4. Open http://localhost:4200.** It redirects to the Menu: a category bar at the top and a list
+of about 3000 seeded items in 30 categories, with prices in USD. The top bar links to Menu, Orders
+and Setup, and has a cart icon.
+
+**5. Stop** with Ctrl+C in the terminal. All data lives in server memory and resets on the next start.
+
+### Try it (5 minutes)
+
+1. Open http://localhost:4200 in two browser windows side by side.
+2. In window A, open **Setup**, pick a category in the list, and switch off an item's availability
+   toggle. In window B
+   the item turns "Unavailable" in the Menu within a moment, without a reload.
+3. In window A, open an item, change its price and save. Window B shows the new price.
+4. In window B, add a few items to the cart (an open-price item asks for an amount), open the cart,
+   enter a discount and click **Place order**. The order appears in **Orders** in both windows and
+   moves through accepted → preparing → ready → completed (about every 8 s).
+5. Add an item to the cart in window B, then change its price in window A and place the order in
+   window B: a "The menu has changed" dialog lists what will change before anything is submitted.
+6. In window A, delete an item that is in window B's cart (item panel → **Delete**). The cart line
+   is shown as removed.
+
+### Reliability demo
+
+```bash
+npm run start:chaos
+```
+
+Same as `npm start`, but the server reads `apps/server/chaos.env`: 800 ms latency, 20% of REST
+requests fail, the socket is dropped every 30 s, and order statuses change every 5 s. Watch the
+connection banner reconnect and resume, and place orders: a failed checkout locks the cart with
+"Your order may have been placed. Retrying is safe…" and **Retry** never creates a second order.
+
+### Tests, lint and build
 
 ```bash
 npm test        # unit tests for web and server, type check of contracts
-npm run lint    # lint, including architecture boundaries
+npm run lint    # ESLint (including architecture boundaries) and server type check
 npm run build   # production build of web and server
 ```
 
-Server environment variables (all optional):
+There is no CI workflow in the repository; run these locally.
+
+### Configuration
+
+Server environment variables (all optional; an invalid value stops the server with an error):
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -47,6 +119,22 @@ replaced with a 500. This simulates a response lost on the way back. Clients mus
 treat a 500 on a mutation as "outcome unknown": checkout retries with the same
 `Idempotency-Key` and gets the original order back with 200, and the menu converges through
 the event stream.
+
+### Troubleshooting
+
+- **Port 3000 or 4200 already in use.** `npm start` stops both processes if either fails to start.
+  Find the process with `lsof -i :3000` (macOS, Linux) or `netstat -ano | findstr :3000` (Windows)
+  and stop it. To use another server port, set `PORT` and change the target in
+  `apps/web/proxy.conf.json` to match. For another web port: `npm exec -w apps/web -- ng serve --port 4300`.
+- **Wrong Node or npm version.** `npm ci` warns about `engines`, and the Angular CLI refuses to start
+  on an older Node. Check `node -v` and `npm -v` and update as in step 1.
+- **Clean reinstall.**
+  - bash: `rm -rf node_modules apps/*/node_modules packages/*/node_modules && npm ci`
+  - PowerShell: `Remove-Item -Recurse -Force node_modules, apps/*/node_modules, packages/*/node_modules -ErrorAction SilentlyContinue; npm ci`
+- **Connection banner never goes away.** The WebSocket goes through the dev proxy (`/api/ws` →
+  `localhost:3000`, `ws: true` in `apps/web/proxy.conf.json`). Check that the server is running
+  (`curl http://localhost:3000/api/health`) and that nothing between the browser and
+  `localhost:4200` blocks WebSocket upgrades (some corporate proxies and browser extensions do).
 
 ## Architecture
 
