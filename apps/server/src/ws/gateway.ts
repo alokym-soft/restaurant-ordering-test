@@ -83,13 +83,16 @@ export async function realtimeGateway(app: FastifyInstance): Promise<void> {
     const helloTimer = setTimeout(() => protocolError('Expected hello'), HELLO_TIMEOUT_MS);
     helloTimer.unref();
 
-    const startSession = (lastSeq: number | null): void => {
+    const startSession = (lastSeq: number | null, clientEpoch: string | null): void => {
       clearTimeout(helloTimer);
       send({ type: 'welcome', serverSeq: bus.currentSeq, heartbeatMs, epoch });
 
       // Replay and subscription happen in the same tick: no event can slip in between.
       if (lastSeq !== null) {
-        const missed = bus.since(lastSeq);
+        // A different epoch means the client's seq belongs to an earlier server run: never replay
+        // events from this run against it. `since` also refuses a lastSeq ahead of the server.
+        const sameEpoch = clientEpoch === null || clientEpoch === epoch;
+        const missed = sameEpoch ? bus.since(lastSeq) : null;
         if (missed === null) {
           send({ type: 'resync_required', oldestAvailableSeq: bus.oldestAvailableSeq, serverSeq: bus.currentSeq });
         } else {
@@ -116,7 +119,7 @@ export async function realtimeGateway(app: FastifyInstance): Promise<void> {
 
       if (message.type === 'hello') {
         if (unsubscribe) return protocolError('Duplicate hello');
-        return startSession(message.lastSeq);
+        return startSession(message.lastSeq, message.epoch);
       }
       if (!unsubscribe) return protocolError('Expected hello');
       // pong: lastSeenAt is already updated.

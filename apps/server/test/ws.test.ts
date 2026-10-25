@@ -104,6 +104,30 @@ describe('WebSocket gateway', () => {
     expect(resync).toEqual({ type: 'resync_required', oldestAvailableSeq: 3, serverSeq: 4 });
   });
 
+  it('sends resync_required instead of a replay when the epoch differs (server restarted)', async () => {
+    const url = await start();
+    for (const id of ['a', 'b', 'c']) publish(id);
+
+    // A client from the previous server run: its lastSeq is within the new server's range.
+    const client = await open(url);
+    client.socket.send(JSON.stringify({ type: 'hello', lastSeq: 1, epoch: 'previous-run' }));
+
+    const [welcome, next] = await client.take(2);
+    expect(welcome).toMatchObject({ type: 'welcome', serverSeq: 3, epoch: app?.services.epoch });
+    expect(next).toEqual({ type: 'resync_required', oldestAvailableSeq: 1, serverSeq: 3 });
+  });
+
+  it('sends resync_required when lastSeq is ahead of the server seq', async () => {
+    const url = await start();
+    publish('a');
+
+    const client = await open(url);
+    client.socket.send(JSON.stringify({ type: 'hello', lastSeq: 7, epoch: app?.services.epoch }));
+
+    const [, next] = await client.take(2);
+    expect(next).toEqual({ type: 'resync_required', oldestAvailableSeq: 1, serverSeq: 1 });
+  });
+
   it('closes with 4400 when the first frame is not hello', async () => {
     const client = await open(await start());
     client.socket.send('not json');
