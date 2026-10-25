@@ -174,6 +174,20 @@ Commands go over REST. Every state change comes back to all clients over a singl
 The transport is isolated in `core/realtime`; domains only see typed `ServerEvent`s. The menu store is updated only from snapshots and events, never from HTTP mutation responses,
 so there is one source of truth regardless of which tab made the change.
 
+## Requirements coverage
+
+| Requirement | Status | Where |
+|---|---|---|
+| Setup: manage categories and items, fixed or open price, availability | Met | `apps/web/src/app/domains/setup`; [Setup: optimistic concurrency](#setup-optimistic-concurrency) |
+| Menu: browse, add to cart, place an order | Met | `domains/menu`, `domains/cart`; [Checkout](#checkout-no-double-orders-no-surprises) |
+| Minimal server | Met | `apps/server` (Fastify, in-memory data) |
+| Speed with a large menu | Met | Virtual scroll, zoneless; [Performance](#performance) with measured numbers |
+| Live updates across clients | Met | `core/realtime`; [Event model](#event-model-global-sequence-and-versioned-full-upserts) |
+| Reliability: reconnect, retries, no double orders | Met | [Reliability](#reliability); `npm run start:chaos` |
+| Runs with one or two commands | Met | `npm ci`, `npm start` |
+| Build, tests and lint pass | Met | `npm run build`, `npm test`, `npm run lint` (run locally, no CI) |
+| Strict TypeScript | Met | `strict` in all packages, `strictTemplates` in the web app |
+
 ## Key decisions and trade-offs
 
 ### State management: classic NgRx Store
