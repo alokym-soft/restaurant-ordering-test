@@ -12,9 +12,12 @@ import {
   viewChild,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { Store } from '@ngrx/store';
+import { firstValueFrom } from 'rxjs';
 import type { CategoryId, ItemId, MenuItem } from '@restaurant/contracts';
 import { NotificationService } from '@core/errors';
+import { ConfirmDialogComponent, type ConfirmDialogData, DIALOG_SIZE } from '@shared/ui';
 import { menuFeature, selectItemEntities } from '@menu';
 import {
   NEW_ITEM_KEY,
@@ -47,7 +50,12 @@ export const ITEM_REMOVED_MESSAGE = 'This item was removed elsewhere.';
   template: `
     <header class="head">
       <h2>{{ title() }}</h2>
-      <button mat-button type="button" aria-label="Close" (click)="close()">Close</button>
+      <span class="actions">
+        @if (!isNew()) {
+          <button mat-button type="button" class="delete" [disabled]="saving()" (click)="delete()">Delete</button>
+        }
+        <button mat-button type="button" aria-label="Close" (click)="close()">Close</button>
+      </span>
     </header>
     <app-item-form
       [item]="item()"
@@ -77,6 +85,13 @@ export const ITEM_REMOVED_MESSAGE = 'This item was removed elsewhere.';
     .head h2 {
       font: var(--mat-sys-title-medium);
     }
+    .actions {
+      display: flex;
+      gap: var(--space-1);
+    }
+    .delete:not(:disabled) {
+      color: var(--mat-sys-error);
+    }
     /* Medium screens: overlay the list instead of squeezing it to nothing. */
     @media (min-width: 721px) and (max-width: 1100px) {
       :host {
@@ -101,6 +116,7 @@ export const ITEM_REMOVED_MESSAGE = 'This item was removed elsewhere.';
 })
 export class ItemPanelComponent {
   private readonly store = inject(Store);
+  private readonly dialog = inject(MatDialog);
   private readonly notifications = inject(NotificationService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly form = viewChild.required(ItemFormComponent);
@@ -127,6 +143,8 @@ export class ItemPanelComponent {
   protected readonly title = computed(() => (this.isNew() ? 'New item' : 'Edit item'));
 
   private awaitingResult = false;
+  /** Set while our own delete runs, so its removal event closes the panel without a notice. */
+  private deleting = false;
   private isClosing = false;
 
   constructor() {
@@ -136,12 +154,12 @@ export class ItemPanelComponent {
     effect(() => {
       if (this.isNew() || this.item() || this.menuStatus() !== 'loaded') return;
       untracked(() => {
-        this.notifications.info(ITEM_REMOVED_MESSAGE);
+        if (!this.deleting) this.notifications.info(ITEM_REMOVED_MESSAGE);
         this.close();
       });
     });
 
-    // Reacts to the end of a save: close on success, show the latest version on a conflict.
+    // Reacts to the end of a save or delete: close on success, show the latest version on a conflict.
     effect(() => {
       if (this.saving() || !this.awaitingResult) return;
       untracked(() => {
@@ -149,6 +167,9 @@ export class ItemPanelComponent {
         const error = this.errors()[this.key()];
         if (!error) {
           this.close();
+        } else if (this.deleting) {
+          // The failure itself is shown by the setup effects; the panel stays open for another try.
+          this.deleting = false;
         } else if (error.code === 'VERSION_CONFLICT') {
           const current = (error.details as { current?: MenuItem } | undefined)?.current;
           if (current) this.form().load(current);
@@ -169,6 +190,26 @@ export class ItemPanelComponent {
         SetupPageActions.itemUpdated({ id: this.itemId(), request: { ...rest, description, expectedVersion } }),
       );
     }
+  }
+
+  /** Asks for confirmation; the item leaves the menu (and the panel closes) when its event arrives. */
+  protected async delete(): Promise<void> {
+    const item = this.item();
+    if (!item) return;
+    const ref = this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
+      data: {
+        title: `Delete "${item.name}"?`,
+        message:
+          'It disappears from the menu for everyone. Carts that contain it will show it as removed; ' +
+          'existing orders are not changed. This cannot be undone.',
+        confirmLabel: 'Delete',
+      },
+      ...DIALOG_SIZE,
+    });
+    if (!(await firstValueFrom(ref.afterClosed()))) return;
+    this.deleting = true;
+    this.awaitingResult = true;
+    this.store.dispatch(SetupPageActions.itemDeleteConfirmed({ id: item.id }));
   }
 
   protected close(): void {

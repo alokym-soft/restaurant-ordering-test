@@ -26,6 +26,23 @@ function collect(source: Observable<Action>): Action[] {
 }
 
 describe('runMutations', () => {
+  it('deletes an item and waits until it is gone from the menu', () => {
+    const actions$ = new Subject<Action>();
+    const calls: string[] = [];
+    const api = {
+      deleteItem: (id: string) => {
+        calls.push(id);
+        return of(undefined);
+      },
+    } as unknown as SetupApi;
+    const out = collect(runMutations(new Actions(actions$), api));
+    actions$.next(SetupPageActions.itemDeleteConfirmed({ id: 'i1' }));
+
+    expect(calls).toEqual(['i1']);
+    expect(out).toEqual([
+      SetupApiActions.mutationSucceeded({ key: itemKey('i1'), awaiting: { entity: 'item', id: 'i1', removed: true } }),
+    ]);
+  });
   it('sends the expected version and waits for the returned version', () => {
     const actions$ = new Subject<Action>();
     const calls: unknown[] = [];
