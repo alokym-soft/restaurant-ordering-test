@@ -103,7 +103,8 @@ no facades, to avoid a layer that would only proxy calls in a project of this si
 ### Real-time transport: WebSocket for events, REST for commands
 
 Events go over a plain WebSocket with a small typed protocol (`packages/contracts/src/realtime.ts`):
-`hello { lastSeq }` → `welcome` → replay or `resync_required` → live events, with `ping`/`pong` heartbeat.
+`hello { lastSeq, epoch }` → `welcome { serverSeq, epoch }` → replay or `resync_required` → live events,
+with `ping`/`pong` heartbeat.
 
 - **Plain WebSocket, no socket.io.** Reconnect, heartbeat and resume are the parts that decide whether
   live data can be trusted, so they are explicit, small and tested, not hidden in a library with its own protocol.
@@ -111,8 +112,8 @@ Events go over a plain WebSocket with a small typed protocol (`packages/contract
   and reconnects immediately on the browser `online` event and when a hidden tab becomes visible.
 - **Heartbeat** detects half-open connections, common on mobile networks, where the socket looks open
   but nothing arrives. Without it a user could look at stale prices for minutes.
-- **Resume** sends the last seen `seq` in `hello`, so a short disconnect replays only missed events
-  instead of reloading everything.
+- **Resume** sends the last seen `seq` and the server `epoch` it belongs to in `hello`, so a short
+  disconnect replays only missed events instead of reloading everything.
 - **Commands stay on REST.** Status codes, `409` conflicts, idempotency headers, retries and tests are
   simpler over HTTP than request/response correlation over a socket.
 
@@ -122,14 +123,21 @@ liveness detection. Also rejected: socket.io (extra protocol and bundle weight, 
 
 ### Event model: global sequence and versioned full upserts
 
-- Every event has a global, strictly increasing `seq`.
+- Every event has a global, strictly increasing `seq`. Every server run also has a random `epoch`,
+  sent in `welcome`; a `seq` is only meaningful within its epoch.
 - Snapshots carry the `seq` they reflect. While a snapshot loads, its domain buffers incoming events and then
   applies only those with `seq >` snapshot `seq`, so nothing is lost or applied twice regardless of timing.
   The same flow serves the initial load, resync, and the lazy orders feature. The orders state is
   loaded when the page is first opened and stays live after leaving it; an order just placed is shown
   (and highlighted) from the checkout response before its event arrives, with the same version check.
-- If a client reconnects after the server's event buffer has moved on, the server sends
-  `resync_required` and the client refetches snapshots.
+- The event stream is only complete after the `serverSeq` of the `welcome` that started it. A snapshot
+  older than that (for example, requested before the socket connected) would miss events that never
+  arrive, so it is requested again, whether the `welcome` arrived before or after the snapshot.
+- After `welcome` and any replay, events must arrive with consecutive `seq`. Duplicates are ignored;
+  a gap means events were lost, and the client resyncs (refetches snapshots).
+- The server sends `resync_required` instead of a replay when the client's `lastSeq` is older than its
+  event buffer, ahead of its current `seq`, or from a different `epoch` (the server restarted). The
+  client then refetches snapshots.
 - Upsert events carry the full entity, applied only if its `version` is newer. This is idempotent and
   tolerant to duplicates. Rejected: field-level deltas (smaller payloads, but entities are small and
   deltas make reducers order-sensitive).
@@ -253,7 +261,9 @@ Requests are validated by small hand-written parsers; every invalid field is rep
 - The event buffer lives in memory of a single server instance.
 - Every client receives every event; there are no per-topic subscriptions (the menu and orders are small enough).
 - The socket is not authenticated.
-- No runtime validation of incoming events on the client; the contract is trusted at compile time.
+- No runtime validation of event payloads on the client; the contract is trusted at compile time.
+  Only the frame shape is checked: frames of unknown type, events of unknown type and events without
+  an integer `seq` are ignored with a warning.
 - The `cancelled` order status exists in the contract but is never produced; orders always reach `completed`.
 - Completed orders stay in memory for the lifetime of the server; nothing is archived or pruned.
 - Idempotency keys are kept in memory without expiry.
@@ -268,8 +278,9 @@ Requests are validated by small hand-written parsers; every invalid field is rep
 - Setup has no inline price editing; prices are changed in the item form. Availability can be
   toggled inline.
 - Items cannot be deleted from Setup; making an item unavailable stops it from being ordered.
-- Restarting the server resets data and the event sequence. Clients notice through `resync_required`
-  and reload their snapshots; cart lines for items that no longer exist are shown as removed.
+- Restarting the server resets data and the event sequence and generates a new `epoch`. Clients notice
+  the epoch change on reconnect, get `resync_required` and reload their snapshots; cart lines for items
+  that no longer exist are shown as removed.
 - No end-to-end tests. Reconnect, resume, resync and checkout retries are covered by unit tests; the
   server's fault injection (`LATENCY_MS`, `FAILURE_RATE`, `WS_DROP_MS`) is there to try them by hand.
 
