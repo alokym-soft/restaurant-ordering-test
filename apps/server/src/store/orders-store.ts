@@ -33,4 +33,10 @@ export class OrdersStore {
   save(order: Order): void {
     this.orders.set(order.id, order);
   }
+
+  /** Stores a new order together with its idempotency key and body fingerprint in one step. */
+  recordOrder(key: string, fingerprint: string, order: Order): void {
+    this.orders.set(order.id, order);
+    this.idempotency.set(key, { fingerprint, orderId: order.id });
+  }
 }
