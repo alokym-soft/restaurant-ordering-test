@@ -13,6 +13,7 @@
   },
   "scripts": {
     "start": "concurrently -n server,web -c blue,magenta --kill-others-on-fail \"npm run start -w @restaurant/server\" \"npm run start -w @restaurant/web\"",
+    "start:chaos": "concurrently -n server,web -c blue,magenta --kill-others-on-fail \"npm run start:chaos -w @restaurant/server\" \"npm run start -w @restaurant/web\"",
     "build": "concurrently -g -n server,web \"npm run build -w @restaurant/server\" \"npm run build -w @restaurant/web\"",
     "test": "concurrently -g -n contracts,server,web \"npm run test -w @restaurant/contracts\" \"npm run test -w @restaurant/server\" \"npm run test -w @restaurant/web\"",
     "lint": "concurrently -g -n root,contracts,server,web \"eslint eslint.config.js\" \"npm run lint -w @restaurant/contracts\" \"npm run lint -w @restaurant/server\" \"npm run lint -w @restaurant/web\""

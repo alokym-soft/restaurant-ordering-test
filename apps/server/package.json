@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "tsx watch src/main.ts",
+    "start:chaos": "tsx watch --env-file=chaos.env src/main.ts",
     "build": "tsup",
     "serve": "node dist/main.js",
     "test": "vitest run",

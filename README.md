@@ -3,31 +3,103 @@
 A prototype of a restaurant ordering web app: menu configuration (Setup), ordering (Menu)
 and a minimal server with real-time updates. Built with Angular, NgRx and Fastify.
 
-## How to run
+## Getting started
 
-Requirements: Node.js 22 LTS (22.22.3 or newer, required by Angular CLI 22) or Node.js 24 LTS,
-npm 11.21 or newer (older npm 11 releases drop platform-specific build tool binaries from
-`package-lock.json`; update with `npm install -g npm@latest`).
+### Quick start
 
 ```bash
 npm ci
-npm start
+npm start        # then open http://localhost:4200
+```
+
+### Step by step
+
+**1. Prerequisites.** Node.js 22.22.3 or newer (22 LTS or 24 LTS) and npm 11.21 or newer. Check:
+
+```bash
+node -v   # v22.22.3 or newer
+npm -v    # 11.21.0 or newer
+```
+
+Older npm 11 releases drop platform-specific build tool binaries from `package-lock.json`.
+Update npm with `npm install -g npm@latest`. To switch Node versions (the repository has an `.nvmrc`):
+
+- nvm (macOS, Linux): `nvm install && nvm use`
+- nvm-windows: `nvm install 22 && nvm use 22`
+- fnm (any OS): `fnm install && fnm use`
+
+**2. Get the code and install.**
+
+```bash
+git clone <repository-url> restaurant
+cd restaurant
+npm ci
 ```
 
 `npm ci` installs exactly what `package-lock.json` lists; `npm install` also works with a recent npm.
 
+**3. Start.**
+
+```bash
+npm start
+```
+
+This runs the server and the web app together. It is ready when you see both:
+
+```
+[server] {"level":30,...,"msg":"Server listening at http://127.0.0.1:3000"}
+[web]    Application bundle generation complete.
+[web]      ➜  Local:   http://localhost:4200/
+```
+
 - Web: http://localhost:4200
 - API: http://localhost:3000 (proxied from the web app under `/api`, including the WebSocket at `/api/ws`)
 
-Other commands:
+**4. Open http://localhost:4200.** It redirects to the Menu: a category bar at the top and a list
+of about 3000 seeded items in 30 categories, with prices in USD. The top bar links to Menu, Orders
+and Setup, and has a cart icon.
+
+**5. Stop** with Ctrl+C in the terminal. All data lives in server memory and resets on the next start.
+
+### Try it (5 minutes)
+
+1. Open http://localhost:4200 in two browser windows side by side.
+2. In window A, open **Setup**, pick a category in the list, and switch off an item's availability
+   toggle. In window B
+   the item turns "Unavailable" in the Menu within a moment, without a reload.
+3. In window A, open an item, change its price and save. Window B shows the new price.
+4. In window B, add a few items to the cart (an open-price item asks for an amount), open the cart,
+   enter a discount and click **Place order**. The order appears in **Orders** in both windows and
+   moves through accepted → preparing → ready → completed (about every 8 s).
+5. Add an item to the cart in window B, then change its price in window A and place the order in
+   window B: a "The menu has changed" dialog lists what will change before anything is submitted.
+6. In window A, delete an item that is in window B's cart (item panel → **Delete**). The cart line
+   is shown as removed.
+
+### Reliability demo
+
+```bash
+npm run start:chaos
+```
+
+Same as `npm start`, but the server reads `apps/server/chaos.env`: 800 ms latency, 20% of REST
+requests fail, the socket is dropped every 30 s, and order statuses change every 5 s. Watch the
+connection banner reconnect and resume, and place orders: a failed checkout locks the cart with
+"Your order may have been placed. Retrying is safe…" and **Retry** never creates a second order.
+
+### Tests, lint and build
 
 ```bash
 npm test        # unit tests for web and server, type check of contracts
-npm run lint    # lint, including architecture boundaries
+npm run lint    # ESLint (including architecture boundaries) and server type check
 npm run build   # production build of web and server
 ```
 
-Server environment variables (all optional):
+There is no CI workflow in the repository; run these locally.
+
+### Configuration
+
+Server environment variables (all optional; an invalid value stops the server with an error):
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -47,6 +119,22 @@ replaced with a 500. This simulates a response lost on the way back. Clients mus
 treat a 500 on a mutation as "outcome unknown": checkout retries with the same
 `Idempotency-Key` and gets the original order back with 200, and the menu converges through
 the event stream.
+
+### Troubleshooting
+
+- **Port 3000 or 4200 already in use.** `npm start` stops both processes if either fails to start.
+  Find the process with `lsof -i :3000` (macOS, Linux) or `netstat -ano | findstr :3000` (Windows)
+  and stop it. To use another server port, set `PORT` and change the target in
+  `apps/web/proxy.conf.json` to match. For another web port: `npm exec -w apps/web -- ng serve --port 4300`.
+- **Wrong Node or npm version.** `npm ci` warns about `engines`, and the Angular CLI refuses to start
+  on an older Node. Check `node -v` and `npm -v` and update as described under Prerequisites.
+- **Clean reinstall.**
+  - bash: `rm -rf node_modules apps/*/node_modules packages/*/node_modules && npm ci`
+  - PowerShell: `Remove-Item -Recurse -Force node_modules, apps/*/node_modules, packages/*/node_modules -ErrorAction SilentlyContinue; npm ci`
+- **Connection banner never goes away.** The WebSocket goes through the dev proxy (`/api/ws` →
+  `localhost:3000`, `ws: true` in `apps/web/proxy.conf.json`). Check that the server is running
+  (`curl http://localhost:3000/api/health`) and that nothing between the browser and
+  `localhost:4200` blocks WebSocket upgrades (some corporate proxies and browser extensions do).
 
 ## Architecture
 
@@ -85,6 +173,20 @@ Dependencies only point downwards; features never import other features. The rul
 Commands go over REST. Every state change comes back to all clients over a single WebSocket.
 The transport is isolated in `core/realtime`; domains only see typed `ServerEvent`s. The menu store is updated only from snapshots and events, never from HTTP mutation responses,
 so there is one source of truth regardless of which tab made the change.
+
+## Requirements coverage
+
+| Requirement | Status | Where |
+|---|---|---|
+| Setup: manage categories and items, fixed or open price, availability | Met | `apps/web/src/app/domains/setup`; [Setup: optimistic concurrency](#setup-optimistic-concurrency) |
+| Menu: browse, add to cart, place an order | Met | `domains/menu`, `domains/cart`; [Checkout](#checkout-no-double-orders-no-surprises) |
+| Minimal server | Met | `apps/server` (Fastify, in-memory data) |
+| Speed with a large menu | Met | Virtual scroll, zoneless; [Performance](#performance) with measured numbers |
+| Live updates across clients | Met | `core/realtime`; [Event model](#event-model-global-sequence-and-versioned-full-upserts) |
+| Reliability: reconnect, retries, no double orders | Met | [Reliability](#reliability); `npm run start:chaos` |
+| Runs with one or two commands | Met | `npm ci`, `npm start` |
+| Build, tests and lint pass | Met | `npm run build`, `npm test`, `npm run lint` (run locally, no CI) |
+| Strict TypeScript | Met | `strict` in all packages, `strictTemplates` in the web app |
 
 ## Key decisions and trade-offs
 
@@ -150,6 +252,8 @@ liveness detection. Also rejected: socket.io (extra protocol and bundle weight, 
   submit and cleared whenever anything in the body changes: lines, quantities, unit prices or the
   discount, including the changes the user accepts after a `409`. An unchanged body reuses its key.
   The server returns the original order for a repeated key and rejects a reused key with a different body.
+  The key, the body fingerprint and the order are recorded in one synchronous step, so concurrent
+  requests with the same key cannot create two orders.
 - **Ambiguous failures lock the cart.** After a network error, a timeout or a 5xx the order may already
   exist. The cart is then locked and the only action is Retry, which resends the same body with the
   same key, so it either creates the order once or returns the one already created. Editing requires
@@ -202,6 +306,9 @@ Deleting a category that still has items is refused with `409 CATEGORY_NOT_EMPTY
 - The item form is a side panel driven by the URL (`?item=<id>`, `?item=new&category=<id>`), so it
   can be linked and survives a reload. Escape closes it and returns focus to the row; on narrow
   screens it takes the full width. Deletions go through a confirmation dialog.
+- **Deleting items.** The item panel has a **Delete** button (when editing an existing item). The
+  item disappears from every menu; carts that contain it show the line as removed, and checkout
+  lists it in the "The menu has changed" review. Existing orders keep their own snapshot.
 
 ### Server validation
 
@@ -256,6 +363,15 @@ uncompressed because the server has no response compression. The Material Symbol
   Rejected: building contracts to JavaScript with project references (an extra build step and watch process).
 - Contracts are plain TypeScript types shared by both apps. Rejected for now: TypeBox or zod schemas, which
   would add runtime validation from the same source at the cost of an extra dependency.
+- TypeScript `strict` everywhere; the web app also enables Angular `strictTemplates`,
+  `strictInjectionParameters` and `strictInputAccessModifiers`.
+
+### Testing
+
+Unit tests with Vitest: the server (`apps/server`, routes, validation, idempotency, fault
+injection, the realtime gateway) and the web app (`apps/web`, reducers, effects, selectors, the
+realtime client including reconnect, resume, gap and epoch handling, and components). `npm test`
+also type-checks `packages/contracts`. There are no end-to-end tests.
 
 ## Deliberate simplifications
 
@@ -270,8 +386,9 @@ uncompressed because the server has no response compression. The Material Symbol
 - Every client receives every event; there are no per-topic subscriptions (the menu and orders are small enough).
 - The socket is not authenticated.
 - No runtime validation of event payloads on the client; the contract is trusted at compile time.
-  Only the frame shape is checked: frames of unknown type, events of unknown type and events without
-  an integer `seq` are ignored with a warning.
+  Only the frame shape is checked: frames of unknown type are ignored with a warning; events of
+  unknown type are skipped with a warning but still advance `seq`; frames whose `seq` is not a safe
+  integer are ignored with a warning.
 - The `cancelled` order status exists in the contract but is never produced; orders always reach `completed`.
 - Completed orders stay in memory for the lifetime of the server; nothing is archived or pruned.
 - Idempotency keys are kept in memory without expiry.
@@ -285,7 +402,6 @@ uncompressed because the server has no response compression. The Material Symbol
   short in a demo. Each card still re-renders only when its own order changes.
 - Setup has no inline price editing; prices are changed in the item form. Availability can be
   toggled inline.
-- Items cannot be deleted from Setup; making an item unavailable stops it from being ordered.
 - Restarting the server resets data and the event sequence and generates a new `epoch`. Clients notice
   the epoch change on reconnect, get `resync_required` and reload their snapshots; cart lines for items
   that no longer exist are shown as removed.
