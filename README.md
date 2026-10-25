@@ -127,7 +127,7 @@ the event stream.
   and stop it. To use another server port, set `PORT` and change the target in
   `apps/web/proxy.conf.json` to match. For another web port: `npm exec -w apps/web -- ng serve --port 4300`.
 - **Wrong Node or npm version.** `npm ci` warns about `engines`, and the Angular CLI refuses to start
-  on an older Node. Check `node -v` and `npm -v` and update as in step 1.
+  on an older Node. Check `node -v` and `npm -v` and update as described under Prerequisites.
 - **Clean reinstall.**
   - bash: `rm -rf node_modules apps/*/node_modules packages/*/node_modules && npm ci`
   - PowerShell: `Remove-Item -Recurse -Force node_modules, apps/*/node_modules, packages/*/node_modules -ErrorAction SilentlyContinue; npm ci`
@@ -238,6 +238,8 @@ liveness detection. Also rejected: socket.io (extra protocol and bundle weight, 
   submit and cleared whenever anything in the body changes: lines, quantities, unit prices or the
   discount, including the changes the user accepts after a `409`. An unchanged body reuses its key.
   The server returns the original order for a repeated key and rejects a reused key with a different body.
+  The key, the body fingerprint and the order are recorded in one synchronous step, so concurrent
+  requests with the same key cannot create two orders.
 - **Ambiguous failures lock the cart.** After a network error, a timeout or a 5xx the order may already
   exist. The cart is then locked and the only action is Retry, which resends the same body with the
   same key, so it either creates the order once or returns the one already created. Editing requires
@@ -290,6 +292,9 @@ Deleting a category that still has items is refused with `409 CATEGORY_NOT_EMPTY
 - The item form is a side panel driven by the URL (`?item=<id>`, `?item=new&category=<id>`), so it
   can be linked and survives a reload. Escape closes it and returns focus to the row; on narrow
   screens it takes the full width. Deletions go through a confirmation dialog.
+- **Deleting items.** The item panel has a **Delete** button (when editing an existing item). The
+  item disappears from every menu; carts that contain it show the line as removed, and checkout
+  lists it in the "The menu has changed" review. Existing orders keep their own snapshot.
 
 ### Server validation
 
@@ -344,6 +349,15 @@ uncompressed because the server has no response compression. The Material Symbol
   Rejected: building contracts to JavaScript with project references (an extra build step and watch process).
 - Contracts are plain TypeScript types shared by both apps. Rejected for now: TypeBox or zod schemas, which
   would add runtime validation from the same source at the cost of an extra dependency.
+- TypeScript `strict` everywhere; the web app also enables Angular `strictTemplates`,
+  `strictInjectionParameters` and `strictInputAccessModifiers`.
+
+### Testing
+
+Unit tests with Vitest: the server (`apps/server`, routes, validation, idempotency, fault
+injection, the realtime gateway) and the web app (`apps/web`, reducers, effects, selectors, the
+realtime client including reconnect, resume, gap and epoch handling, and components). `npm test`
+also type-checks `packages/contracts`. There are no end-to-end tests.
 
 ## Deliberate simplifications
 
@@ -358,8 +372,9 @@ uncompressed because the server has no response compression. The Material Symbol
 - Every client receives every event; there are no per-topic subscriptions (the menu and orders are small enough).
 - The socket is not authenticated.
 - No runtime validation of event payloads on the client; the contract is trusted at compile time.
-  Only the frame shape is checked: frames of unknown type, events of unknown type and events without
-  an integer `seq` are ignored with a warning.
+  Only the frame shape is checked: frames of unknown type are ignored with a warning; events of
+  unknown type are skipped with a warning but still advance `seq`; frames whose `seq` is not a safe
+  integer are ignored with a warning.
 - The `cancelled` order status exists in the contract but is never produced; orders always reach `completed`.
 - Completed orders stay in memory for the lifetime of the server; nothing is archived or pruned.
 - Idempotency keys are kept in memory without expiry.
@@ -373,7 +388,6 @@ uncompressed because the server has no response compression. The Material Symbol
   short in a demo. Each card still re-renders only when its own order changes.
 - Setup has no inline price editing; prices are changed in the item form. Availability can be
   toggled inline.
-- Items cannot be deleted from Setup; making an item unavailable stops it from being ordered.
 - Restarting the server resets data and the event sequence and generates a new `epoch`. Clients notice
   the epoch change on reconnect, get `resync_required` and reload their snapshots; cart lines for items
   that no longer exist are shown as removed.
