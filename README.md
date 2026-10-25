@@ -95,7 +95,7 @@ npm run lint    # ESLint (including architecture boundaries) and server type che
 npm run build   # production build of web and server
 ```
 
-There is no CI workflow in the repository; run these locally.
+CI (`.github/workflows/ci.yml`) runs the same commands on every pull request and push to `main`.
 
 ### Configuration
 
@@ -185,7 +185,7 @@ so there is one source of truth regardless of which tab made the change.
 | Live updates across clients | Met | `core/realtime`; [Event model](#event-model-global-sequence-and-versioned-full-upserts) |
 | Reliability: reconnect, retries, no double orders | Met | [Reliability](#reliability); `npm run start:chaos` |
 | Runs with one or two commands | Met | `npm ci`, `npm start` |
-| Build, tests and lint pass | Met | `npm run build`, `npm test`, `npm run lint` (run locally, no CI) |
+| Build, tests and lint pass | Met | `npm run build`, `npm test`, `npm run lint`, also in CI |
 | Strict TypeScript | Met | `strict` in all packages, `strictTemplates` in the web app |
 
 ## Key decisions and trade-offs
@@ -425,6 +425,6 @@ What would be needed:
 - Observability: structured logs, metrics, tracing, error reporting on the client.
 - E2E tests (Playwright) for checkout and real-time scenarios, load tests for the event stream.
 - Images with responsive sizes and a CDN, HTTP caching for snapshots, service worker for offline shell.
-- CI pipeline with build, lint, tests and bundle-size checks.
+- Bundle-size tracking across commits in CI (today the build fails only when an Angular budget is exceeded).
 - Accessibility audit and internationalization.
 - A pinned npm version (`packageManager` with Corepack), so every machine resolves the lockfile the same way.
